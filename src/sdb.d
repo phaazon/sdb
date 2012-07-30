@@ -1,13 +1,12 @@
 module sdb;
 
-import std.algorithm : reduce;
-import std.array : array;
+import std.algorithm : countUntil, reduce, startsWith;
+import std.array : array, replace, splitter;
 import std.ascii : whitespace;
-import std.file : dirEntries, FileException, isFile, SpanMode;
+import std.file : dirEntries, FileException, isDir, isFile, SpanMode;
 import std.process : shell;
 import std.stdio : File, lines, writefln;
-import std.string : chomp;
-import std.string : splitLines, strip;
+import std.string : chomp, strip;
 
 
 int main(string[] args) {
@@ -20,11 +19,14 @@ int dispatch_args(string[] args) {
     foreach (a; args) {
         switch (a) {
             case "build" :
-				auto comp = new compiler(conf);
-				comp.compile(false);
+                writefln("building '%s'", conf.out_name);
+                auto comp = new compiler(conf);
+                comp.compile(false);
                 break;
 
             case "test" :
+                auto comp = new compiler(conf);
+                comp.compile(true);
                 break;
 
             case "clean" :
@@ -134,23 +136,48 @@ final class configuration {
     private void load_(string file) {
         auto fh = File(file, "r");
 
+        if (!fh.isOpen)
+            throw new FileException(file, "file is not opened");
+
         writefln("reading configuration from file '" ~ file ~ "'");
         foreach (ulong i, string line; lines(fh)) {
             auto str = strip(line);
-            auto tokens = splitLines(str);
+            auto tokens = array(splitter(str));
 
-            if (tokens.length > 2) {
+            if (tokens.length >= 2) {
                 /* tokens[0] is the variable type, tokens[1..$] the values */
+                auto varType = tokens[0];
+                writefln("reading variable '%s'", varType);
                 _tokenFunTbl[tokens[0]](tokens[1..$]);
             } else {
-                writefln("incorrect line syntax: [%d];%s", i, str);
+                writefln("incorrect line syntax (%d tokens): L%d: %s", tokens.length, i, str);
             }
         }
+
+        check_dirs_();
+    }
+
+    private void check_dirs_() {
+        void foreach_check_(string a)() {
+            mixin("foreach (ref d; " ~ a ~ ")
+                    d = check_file_prefix_(d);");
+        }
+
+        foreach_check_!"_libDirs"();
+        foreach_check_!"_importDirs"();
+        foreach_check_!"_srcDirs"();
+        foreach_check_!"_testDirs"();
+    }
+
+    private string check_file_prefix_(string file) {
+        if (startsWith(file, '.', '/') == 0)
+            file = "./" ~ file;
+        return file;
     }
 
     private void build_(string[] values) {
         if (values.length == 1) {
-            final switch (values[0]) {
+            switch (values[0]) {
                 case "debug" :
                     _bt = build_type.DEBUG;
                     break;
@@ -158,13 +185,16 @@ final class configuration {
                 case "release" :
                     _bt = build_type.RELEASE;
                     break;
+
+                default :
+                    writefln("warning: '%s' is not a correct build type", values[0]);
             }
         } 
     }
 
     private void target_(string[] values) {
         if (values.length == 1) {
-            final switch (values[0]) {
+            switch (values[0]) {
                 case "exec" :
                     _tt = target_type.EXEC;
                     break;
@@ -176,6 +206,9 @@ final class configuration {
                 case "shared" :
                     _tt = target_type.SHARED;
                     break;
+
+                default :
+                    writefln("warning: '%s' is not a correct target type", values[0]);
             }
         }
     }
@@ -223,20 +256,28 @@ final class compiler {
             ~ out_str;
 
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
-            auto base = chomp(path, "/");
-            auto files = array(dirEntries(path, "*.d", SpanMode.depth));
+            try {
+                path.isDir;;
+            } catch (FileException e) {
+                writefln("warning: %s", e.msg);
+                continue; /* FIXME: a bit dirty imho */
+            } 
 
+            auto files = array(dirEntries(path, "*.d", SpanMode.depth));
             foreach (int i, string file; files) {
-                auto m = module_from_file_(file, base);
-                shell(cmd ~ m ~ " " ~ file);
+                auto m = module_from_file_(file);
+                //shell(cmd ~ m ~ " " ~ file);
+                writefln("to be compiled: %s", m);
             }
-        }            
+        }
     }
 
-    private string module_from_file_(string file, string base) in {
+    private string module_from_file_(string file) in {
         assert ( file !is null );
     } body {
-        auto m = chomp(file[base.length+1 .. $], "/");
+		auto startIndex = countUntil!"a != '.' && a != '/'"(file);
+		auto m = chomp(file[startIndex .. $], "/");
+		m = replace(m, "/", ".");
         return m;
     }
 
