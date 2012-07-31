@@ -1,7 +1,7 @@
 module sdb;
 
 import std.algorithm : countUntil, reduce, startsWith;
-import std.array : array, replace, splitter;
+import std.array : array, join, replace, splitter;
 import std.ascii : whitespace;
 import std.file : dirEntries, FileException, isDir, isFile, SpanMode, SysTime, timeLastModified;
 import std.process : shell;
@@ -22,6 +22,7 @@ int dispatch_args(string[] args) {
                 writefln("building '%s'", conf.out_name);
                 auto comp = new compiler(conf);
                 comp.compile(false);
+				comp.link();
                 break;
 
             case "test" :
@@ -238,10 +239,11 @@ final class compiler {
         _conf = conf;
     }
 
-    void compile(bool test) {
-        string bt;
-        final switch (_conf.bt) {
-            case build_type.DEBUG :
+	private string bt_() {
+		string bt;
+
+		final switch (_conf.bt) {
+			case build_type.DEBUG :
                 bt = "-debug -g";
                 break;
 
@@ -249,6 +251,12 @@ final class compiler {
                 bt = "-release -O";
                 break;
         }
+
+		return bt;
+	}
+
+    void compile(bool test) {
+        string bt = bt_();
 		auto importDirs = _conf.import_dirs;
         auto cmd = compiler_str
             ~ object_str
@@ -256,6 +264,7 @@ final class compiler {
             ~ (importDirs.length ? reduce!("a ~ \"" ~ import_dir_str ~ "\"~b ")(import_dir_str, importDirs) : "")
             ~ out_str;
 
+		writefln("Compiling %s...", _conf.out_name);
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
             try {
                 path.isDir;;
@@ -269,10 +278,10 @@ final class compiler {
             foreach (int i, string file; files) {
                 auto m = module_from_file_(file);
 				if (timeLastModified(file) >= timeLastModified(m, SysTime.min)) {
-					writefln("--> [%4d%% | Compiling %s ]", cast(int)(((i+1)*100/filesNb)), m);
+					writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
 					auto r = shell(cmd ~ m ~ " " ~ file);
-					if (r.length > 1)
-						writeln(cmd ~ m ~ " " ~ file ~ '\n');
+					if (r.length)
+						writeln(r ~ '\n');
 				}
             }
         }
@@ -287,15 +296,38 @@ final class compiler {
         return m[0 .. $-2] ~ ".o";
     }
 
-    /*
     void link() {
+		string bt = bt_();
+		string tt;
+		final switch (_conf.tt) {
+			case target_type.EXEC :
+				tt = "";
+				break;
+
+			case target_type.STATIC :
+				tt = "-lib";
+				break;
+
+			case target_type.SHARED :
+				tt = "-lib -shared";
+				break;
+		}
+		auto libDirs = _conf.lib_dirs;
+		auto libs = _conf.libs;
         auto cmd = compiler_str
-            ~ _conf.target ~ " "
-            ~ _conf.build_type ~ " "
-            ~ reduce!("a ~ " ~ lib_dir_str ~ "b")(lib_dir_str, _conf.lib_dirs) ~ " "
-            ~ reduce!("a ~ " ~ lib_str ~ "b")(lib_str, _conf.libs) ~ " "
-            ~ out_dir ~ _conf.out_name;
-        shell(cmd);
+            ~ tt ~ " "
+            ~ bt ~ " "
+            ~ (libDirs.length ? reduce!("a ~ \"" ~ lib_dir_str ~ "\"~b")(lib_dir_str, libDirs) ~ " " : "")
+            ~ (libs.length ? reduce!("a ~ \"" ~ lib_str ~ "\"~b")(lib_str, libs) ~ " " : "")
+            ~ out_str ~ _conf.out_name ~ " ";
+
+		writefln("Linking %s...", _conf.out_name);
+		auto files = array(dirEntries(".", "*.o", SpanMode.depth));
+		string objects;
+		foreach (string obj; files)
+			objects ~= obj ~ " ";
+		auto r = shell(cmd ~ objects);
+		if (r.length)
+			writeln(r ~ '\n');
     }
-    */
 }
