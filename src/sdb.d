@@ -3,9 +3,9 @@ module sdb;
 import std.algorithm : countUntil, reduce, startsWith;
 import std.array : array, replace, splitter;
 import std.ascii : whitespace;
-import std.file : dirEntries, FileException, isDir, isFile, SpanMode;
+import std.file : dirEntries, FileException, isDir, isFile, SpanMode, SysTime, timeLastModified;
 import std.process : shell;
-import std.stdio : File, lines, writefln;
+import std.stdio : File, lines, writeln, writefln;
 import std.string : chomp, strip;
 
 
@@ -249,10 +249,11 @@ final class compiler {
                 bt = "-release -O";
                 break;
         }
+		auto importDirs = _conf.import_dirs;
         auto cmd = compiler_str
             ~ object_str
             ~ bt ~ " "
-            ~ reduce!("a ~ \"" ~ import_dir_str ~ "\"~b ")(import_dir_str, _conf.import_dirs)
+            ~ (importDirs.length ? reduce!("a ~ \"" ~ import_dir_str ~ "\"~b ")(import_dir_str, importDirs) : "")
             ~ out_str;
 
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
@@ -264,10 +265,15 @@ final class compiler {
             } 
 
             auto files = array(dirEntries(path, "*.d", SpanMode.depth));
+			auto filesNb = files.length;
             foreach (int i, string file; files) {
                 auto m = module_from_file_(file);
-                //shell(cmd ~ m ~ " " ~ file);
-                writefln("to be compiled: %s", m);
+				if (timeLastModified(file) >= timeLastModified(m, SysTime.min)) {
+					writefln("--> [%4d%% | Compiling %s ]", cast(int)(((i+1)*100/filesNb)), m);
+					auto r = shell(cmd ~ m ~ " " ~ file);
+					if (r.length > 1)
+						writeln(cmd ~ m ~ " " ~ file ~ '\n');
+				}
             }
         }
     }
@@ -278,7 +284,7 @@ final class compiler {
 		auto startIndex = countUntil!"a != '.' && a != '/'"(file);
 		auto m = chomp(file[startIndex .. $], "/");
 		m = replace(m, "/", ".");
-        return m;
+        return m[0 .. $-2] ~ ".o";
     }
 
     /*
