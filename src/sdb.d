@@ -10,22 +10,24 @@ import std.string : chomp, strip;
 
 
 int main(string[] args) {
-    return dispatch_args(args[1 .. $]);
+    return dispatch_args(args);
 }
 
 int dispatch_args(string[] args) {
     auto conf = new configuration(".sdb");
 
-    foreach (a; args) {
+	if (args.length == 1) {
+		build(conf);
+		return 0;
+	}
+
+    foreach (a; args[1 .. $]) {
         switch (a) {
             case "build" :
-                writefln("building '%s'", conf.out_name);
-                auto comp = new compiler(conf);
-                comp.compile(false);
-                comp.link();
-                break;
+				build(conf);
+				break;
 
-            case "test" :
+			case "btest" :
                 auto comp = new compiler(conf);
                 comp.compile(true);
                 break;
@@ -40,11 +42,18 @@ int dispatch_args(string[] args) {
                 break;
 
             default :
-                writefln("usage: " ~ args[0] ~ " [build|test|clean]");
+                writefln("usage: %s [build|test|clean]; '%s' is incorrect", args[0], a);
         }
     }
 
     return 0;
+}
+
+void build(configuration conf) {
+	writefln("building '%s'", conf.out_name);
+	auto comp = new compiler(conf);
+	comp.compile(false);
+	comp.link();
 }
 
 
@@ -148,7 +157,7 @@ final class configuration {
             if (tokens.length >= 2) {
                 /* tokens[0] is the variable type, tokens[1..$] the values */
                 auto varType = tokens[0];
-                writefln("reading variable '%s'", varType);
+                debug writefln("reading variable '%s'", varType);
                 _tokenFunTbl[tokens[0]](tokens[1..$]);
             } else {
                 writefln("incorrect line syntax (%d tokens): L%d: %s", tokens.length, i, str);
@@ -264,7 +273,6 @@ final class compiler {
             ~ (importDirs.length ? import_dir_str ~ reduce!("a ~ \" " ~ import_dir_str ~ "\"~ b")(importDirs) ~ " " : "")
             ~ out_str;
 
-        writefln("Compiling %s...", _conf.out_name);
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
             try {
                 path.isDir;
@@ -275,6 +283,7 @@ final class compiler {
 
             auto files = array(dirEntries(path, "*.d", SpanMode.depth));
             auto filesNb = files.length;
+			writefln("%d files to compile", filesNb);
             foreach (int i, string file; files) {
                 auto m = module_from_file_(file);
                 if (timeLastModified(file) >= timeLastModified(m, SysTime.min)) {
