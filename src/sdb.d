@@ -28,6 +28,8 @@ int dispatch_args(string[] args) {
 				break;
 
 			case "btest" :
+				auto outName = conf.out_name;
+				writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
                 auto comp = new compiler(conf);
                 comp.compile(true);
                 break;
@@ -50,7 +52,7 @@ int dispatch_args(string[] args) {
 }
 
 void build(configuration conf) {
-	writefln("building '%s'", conf.out_name);
+	writefln("building %s", conf.out_name);
 	auto comp = new compiler(conf);
 	comp.compile(false);
 	comp.link();
@@ -113,7 +115,6 @@ final class configuration {
     this(string file) in {
         assert ( file !is null );
     } body {
-        default_();
         init_fun_();
 
         if (!file.isFile) {
