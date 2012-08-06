@@ -3,7 +3,7 @@ module sdb;
 import std.algorithm : countUntil, reduce, startsWith;
 import std.array : array, join, replace, splitter;
 import std.ascii : whitespace;
-import std.file : dirEntries, FileException, isDir, isFile, SpanMode, SysTime, timeLastModified;
+import std.file : dirEntries, FileException, isDir, isFile, remove, SpanMode, SysTime, timeLastModified;
 import std.process : shell;
 import std.stdio : File, lines, writeln, writefln;
 import std.string : chomp, strip;
@@ -35,6 +35,7 @@ int dispatch_args(string[] args) {
                 break;
 
             case "clean" :
+                clean(conf);
                 break;
 
             case "install" :
@@ -66,6 +67,15 @@ void test(string[] ts = null) {
         foreach (t; ts) {
  */
 
+void clean(configuration conf) {
+    /* removing the objects */
+    auto objects = array(dirEntries(".", "*.o", SpanMode.depth));
+    foreach (string o; objects)
+        remove(o);
+
+    /* removing the out */
+    remove(conf.out_name);
+}
 
 enum build_type  { DEBUG, RELEASE };
 enum target_type { EXEC, STATIC, SHARED };
@@ -297,7 +307,7 @@ final class compiler {
                 auto m = module_from_file_(file);
                 if (timeLastModified(file) >= timeLastModified(m, SysTime.min)) {
                     writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
-                    auto r = shell(cmd ~ m ~ " " ~ file ~ ".o");
+                    auto r = shell(cmd ~ m ~ ".o " ~ file);
                     debug writeln(cmd ~ m ~ " " ~ file);
                     if (r.length)
                         writeln(r ~ '\n');
