@@ -77,7 +77,7 @@ The order the keywords appear does not matter, but they have to be upcase.
 
 build:
     Used to build the application.
-build test:
+btest:
     Used to build the tests of the application.
 test:
     Used to run all the tests of the application.
@@ -87,11 +87,15 @@ install:
     Used to install the application.
 uninstall:
     Used to uninstall the application.
-**Note: up to now, only the build flag is supported**. 
+**Note: up to now, only the build flags `build`, `btest` and `clean` are supported**. 
 
 You can build your application with the build flag then:
 
     ``$ sdb build``
+
+There is also a shortcut to the line above:
+
+    ``$ sdb``
 
 III - Support
 =============
