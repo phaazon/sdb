@@ -16,20 +16,20 @@ int main(string[] args) {
 int dispatch_args(string[] args) {
     auto conf = new configuration(".sdb");
 
-	if (args.length == 1) {
-		build(conf);
-		return 0;
-	}
+    if (args.length == 1) {
+        build(conf);
+        return 0;
+    }
 
     foreach (a; args[1 .. $]) {
         switch (a) {
             case "build" :
-				build(conf);
-				break;
+                build(conf);
+                break;
 
-			case "btest" :
-				auto outName = conf.out_name;
-				writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
+            case "btest" :
+                auto outName = conf.out_name;
+                writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
                 auto comp = new compiler(conf);
                 comp.compile(true);
                 break;
@@ -52,11 +52,19 @@ int dispatch_args(string[] args) {
 }
 
 void build(configuration conf) {
-	writefln("building %s", conf.out_name);
-	auto comp = new compiler(conf);
-	comp.compile(false);
-	comp.link();
+    writefln("building %s", conf.out_name);
+    auto comp = new compiler(conf);
+    comp.compile(false);
+    comp.link();
 }
+
+
+/*
+void test(string[] ts = null) {
+    writefln("testing %s", conf.out_name);
+    if (ts is null) {
+        foreach (t; ts) {
+ */
 
 
 enum build_type  { DEBUG, RELEASE };
@@ -284,12 +292,12 @@ final class compiler {
 
             auto files = array(dirEntries(path, "*.d", SpanMode.depth));
             auto filesNb = files.length;
-			writefln("%d files to compile", filesNb);
+            writefln("%d files to compile", filesNb);
             foreach (int i, string file; files) {
                 auto m = module_from_file_(file);
                 if (timeLastModified(file) >= timeLastModified(m, SysTime.min)) {
                     writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
-                    auto r = shell(cmd ~ m ~ " " ~ file);
+                    auto r = shell(cmd ~ m ~ " " ~ file ~ ".o");
                     debug writeln(cmd ~ m ~ " " ~ file);
                     if (r.length)
                         writeln(r ~ '\n');
@@ -304,10 +312,23 @@ final class compiler {
         auto startIndex = countUntil!"a != '.' && a != '/'"(file);
         auto m = chomp(file[startIndex .. $], "/");
         m = replace(m, "/", ".");
-        return m[0 .. $-2] ~ ".o";
+        return m[0 .. $-2];
     }
 
     void link() {
+        writefln("Linking %s...", _conf.out_name);
+        auto files = array(dirEntries(".", "*.o", SpanMode.depth));
+        string objects;
+        foreach (string obj; files)
+            objects ~= obj ~ " ";
+        auto cmd = link_string_(_conf.out_name);
+        debug writeln(cmd ~ objects);
+        auto r = shell(cmd ~ objects);
+        if (r.length)
+            writeln(r ~ '\n');
+    }
+
+    private string link_string_(string outName) {
         string bt = bt_();
         string tt;
         final switch (_conf.tt) {
@@ -330,16 +351,26 @@ final class compiler {
             ~ bt ~ " "
             ~ (libDirs.length ? lib_dir_str ~ reduce!("a ~ \" " ~ lib_dir_str ~ "\"~ b")(libDirs) ~ " " : "")
             ~ (libs.length ? lib_str ~ reduce!("a ~ \" " ~ lib_str ~ "\"~ b")(libs) ~ " " : "")
-            ~ out_str ~ _conf.out_name ~ " ";
+            ~ out_str ~ outName ~ " ";
+        return cmd;
+    }
 
-        writefln("Linking %s...", _conf.out_name);
-        auto files = array(dirEntries(".", "*.o", SpanMode.depth));
-        string objects;
-        foreach (string obj; files)
-            objects ~= obj ~ " ";
-        debug writeln(cmd ~ objects);
-        auto r = shell(cmd ~ objects);
-        if (r.length)
-            writeln(r ~ '\n');
+    void test(string[] ts = null) {
+        if (ts is null) {
+            writeln("testing all the application");
+            foreach (path; _conf.test_dirs) {
+                auto files = array(dirEntries(path, "*.d", SpanMode.depth));
+                auto filesNb = files.length;
+                writefln("%d files to test", filesNb);
+                foreach (int i, string file; files) {
+                    auto m = module_from_file_(file);
+                    if (m.isFile) {
+                        writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
+                        shell(m);
+                    }
+                }
+            }
+        } else {
+        }
     }
 }
