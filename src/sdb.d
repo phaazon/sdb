@@ -308,7 +308,7 @@ final class compiler {
                 if (timeLastModified(file) >= timeLastModified(m, SysTime.min)) {
                     writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
                     auto r = shell(cmd ~ m ~ ".o " ~ file);
-                    debug writeln(cmd ~ m ~ " " ~ file);
+                    debug writeln(cmd ~ m ~ ".o " ~ file);
                     if (r.length)
                         writeln(r ~ '\n');
                 }
