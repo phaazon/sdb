@@ -303,7 +303,7 @@ final class compiler {
 
             auto files = array(dirEntries(path, "*.d", SpanMode.depth));
             auto filesNb = files.length;
-            writefln("%d files to compile", filesNb);
+            writefln("%d file%s to compile", filesNb, (filesNb > 1 ? "s" : ""));
             foreach (int i, string file; files) {
                 auto m = module_from_file_(file);
                 auto obj = m ~ ".o";
