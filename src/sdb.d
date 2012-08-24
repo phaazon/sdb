@@ -15,12 +15,12 @@ int main(string[] args) {
 int dispatch_args(string[] args) {
     configuration conf;
    
-	try {
+    try {
     conf = new configuration(".sdb");
-	} catch (Exception e) {
-		writeln("no .sdb configuration file found here");
-		return 1;
-	}
+    } catch (Exception e) {
+        writeln("no .sdb configuration file found here");
+        return 1;
+    }
 
     if (args.length == 1) {
         build(conf);
@@ -79,10 +79,10 @@ void clean(configuration conf) {
         remove(o);
 
     /* removing the out */
-	try {
-		remove(conf.out_name);
-	} catch (Exception e) {
-	}
+    try {
+        remove(conf.out_name);
+    } catch (Exception e) {
+    }
 }
 
 enum build_type  { DEBUG, RELEASE };
