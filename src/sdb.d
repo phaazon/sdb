@@ -8,13 +8,19 @@ import std.process : system;
 import std.stdio : File, lines, writeln, writefln;
 import std.string : chomp, strip;
 
-
 int main(string[] args) {
     return dispatch_args(args);
 }
 
 int dispatch_args(string[] args) {
-    auto conf = new configuration(".sdb");
+    configuration conf;
+   
+	try {
+    conf = new configuration(".sdb");
+	} catch (Exception e) {
+		writeln("no .sdb configuration file found here");
+		return 1;
+	}
 
     if (args.length == 1) {
         build(conf);
@@ -59,7 +65,6 @@ void build(configuration conf) {
         comp.link();
 }
 
-
 /*
 void test(string[] ts = null) {
     writefln("testing %s", conf.out_name);
@@ -74,7 +79,10 @@ void clean(configuration conf) {
         remove(o);
 
     /* removing the out */
-    remove(conf.out_name);
+	try {
+		remove(conf.out_name);
+	} catch (Exception e) {
+	}
 }
 
 enum build_type  { DEBUG, RELEASE };
@@ -168,7 +176,6 @@ final class configuration {
         if (!fh.isOpen)
             throw new FileException(file, "file is not opened");
 
-        writefln("reading configuration from file '" ~ file ~ "'");
         foreach (ulong i, string line; lines(fh)) {
             auto str = strip(line);
             auto tokens = array(splitter(str));
@@ -253,7 +260,7 @@ final class configuration {
 
 final class compiler {
     version(DigitalMars) {
-        enum compiler_str   = "dmd -w -wi ";
+        enum compiler_str   = "dmd -w -wi -unittest -property ";
         enum object_str     = "-c ";
         enum lib_dir_str    = "-L-L";
         enum lib_str        = "-L-l";
