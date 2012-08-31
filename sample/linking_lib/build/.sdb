@@ -1,0 +1,7 @@
+BUILD debug
+TARGET exec
+IMPORT_DIR ../../lib_building/src
+LIB_DIR ../../lib_building/build
+LIB alpha
+SRC_DIR ../src
+OUT_NAME hi

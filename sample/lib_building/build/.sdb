@@ -1,0 +1,4 @@
+BUILD debug
+TARGET static
+SRC_DIR ../src
+OUT_NAME libalpha.so

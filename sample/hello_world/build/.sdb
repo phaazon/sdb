@@ -1,0 +1,4 @@
+BUILD debug
+TARGET exec
+SRC_DIR ../src
+OUT_NAME test
