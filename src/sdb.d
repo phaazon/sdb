@@ -21,7 +21,7 @@ module sdb;
 import std.algorithm : countUntil, reduce, startsWith;
 import std.array : array, join, replace, splitter;
 import std.ascii : whitespace;
-import std.file : dirEntries, FileException, isDir, isFile, remove, SpanMode, SysTime, timeLastModified;
+import std.file : dirEntries, FileException, isDir, isFile, mkdir, remove, SpanMode, SysTime, timeLastModified;
 import std.process : system;
 import std.stdio : File, lines, writeln, writefln;
 import std.string : chomp, strip;
@@ -37,7 +37,7 @@ under certain conditions; type `conditions' for details.\n");
 }
 
 int dispatch_args(string[] args) {
-    configuration conf;
+    CConfiguration conf;
    
     if (args.length == 2) {
         if (args[1] == "warranty") {
@@ -58,7 +58,7 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
     }
 
     try {
-    conf = new configuration(".sdb");
+    conf = new CConfiguration(".sdb");
     } catch (Exception e) {
         writeln("no .sdb configuration file found here");
         return 1;
@@ -78,7 +78,7 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
             case "btest" :
                 auto outName = conf.out_name;
                 writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
-                auto comp = new compiler(conf);
+                auto comp = new CCompiler(conf);
                 comp.compile(true);
                 break;
 
@@ -100,10 +100,10 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
     return 0;
 }
 
-void build(configuration conf) {
+void build(CConfiguration conf) {
     writefln("building %s", conf.out_name);
-    auto comp = new compiler(conf);
-    if (comp.compile(false))
+    auto comp = new CCompiler(conf);
+    if (comp.build(false))
         comp.link();
 }
 
@@ -114,7 +114,7 @@ void test(string[] ts = null) {
         foreach (t; ts) {
  */
 
-void clean(configuration conf) {
+void clean(CConfiguration conf) {
     /* removing the objects */
     auto objects = array(dirEntries(".", "*.o", SpanMode.depth));
     foreach (string o; objects)
@@ -310,9 +310,9 @@ final class CCompiler {
         enum out_str        = "-of";
     }
 
-    private configuration _conf;
+    private CConfiguration _conf;
 
-    this(configuration conf) {
+    this(CConfiguration conf) {
         _conf = conf;
     }
 
@@ -332,6 +332,19 @@ final class CCompiler {
         return bt;
     }
 
+    bool build(bool test) {
+        /* check if the .obj directory exists */
+        try {
+            ".obj".isDir;
+        } catch (FileException e) {
+            /* let's create it */
+            mkdir(".obj");
+        }
+
+        /* then compile the files */
+        return compile(test);
+    }
+
     bool compile(bool test) {
         bool compiled = true;
         string bt = bt_();
@@ -340,7 +353,7 @@ final class CCompiler {
             ~ object_str
             ~ bt ~ " "
             ~ (importDirs.length ? import_dir_str ~ reduce!("a ~ \" " ~ import_dir_str ~ "\"~ b")(importDirs) ~ " " : "")
-            ~ out_str;
+            ~ out_str ~ ".obj/";
 
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
             try {
