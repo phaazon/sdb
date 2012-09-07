@@ -130,7 +130,7 @@ void clean(configuration conf) {
 enum build_type  { DEBUG, RELEASE };
 enum target_type { EXEC, STATIC, SHARED };
 
-final class configuration {
+final class CConfiguration {
     enum DEFAULT_FILE = ".sdb";
 
     private {
@@ -300,7 +300,7 @@ final class configuration {
     }
 }
 
-final class compiler {
+final class CCompiler {
     version(DigitalMars) {
         enum compiler_str   = "dmd -w -wi -unittest -property ";
         enum object_str     = "-c ";
