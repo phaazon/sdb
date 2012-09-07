@@ -21,7 +21,7 @@ module sdb;
 import std.algorithm : countUntil, reduce, startsWith;
 import std.array : array, join, replace, splitter;
 import std.ascii : whitespace;
-import std.file : dirEntries, FileException, isDir, isFile, mkdir, remove, SpanMode, SysTime, timeLastModified;
+import std.file : dirEntries, FileException, isDir, isFile, mkdir, remove, rmdir, SpanMode, SysTime, timeLastModified;
 import std.process : system;
 import std.stdio : File, lines, writeln, writefln;
 import std.string : chomp, strip;
@@ -115,15 +115,23 @@ void test(string[] ts = null) {
  */
 
 void clean(CConfiguration conf) {
-    /* removing the objects */
-    auto objects = array(dirEntries(".", "*.o", SpanMode.depth));
-    foreach (string o; objects)
-        remove(o);
+    /* removing the application objects */
+    try {
+        auto files = array(dirEntries(".obj", SpanMode.depth));
+        foreach (f; files)
+            remove(f);
+        rmdir(".obj");
+    } catch (FileException e) {
+    }
+
+    /* removing the test objects */
+
+    /* removing the test programs */
 
     /* removing the out */
     try {
         remove(conf.out_name);
-    } catch (Exception e) {
+    } catch (FileException e) {
     }
 }
 
