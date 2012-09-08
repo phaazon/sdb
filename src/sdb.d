@@ -79,16 +79,16 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
                 auto outName = conf.out_name;
                 writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
                 auto comp = new CCompiler(conf);
-                comp.compile(true);
-				comp.link(true);
+                if (comp.compile(true))
+					comp.link(true);
                 break;
 
 			case "test" :
 				test(conf);
 				break;
 
-            case "clean" :
-                clean(conf);
+			case "clean" :
+				clean(conf);
                 break;
 
             default :
@@ -112,8 +112,8 @@ void test(CConfiguration conf) {
 	auto programs = array(dirEntries(".test", SpanMode.depth));
 	auto filesNb = programs.length;
 	foreach (int i, string t; programs) {
-		writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), t);
 		auto r = system(t);
+		writefln("--> [%4d%% | %s ] %s", cast(int)(((i+1)*100/filesNb)), t, (r ? "FAIL" : "OK"));
 	}
 }
 
