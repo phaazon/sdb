@@ -14,6 +14,11 @@ You can download `sdb` on github by cloning the official repository:
     ``$ git clone git@github.com:skypers/sdb.git``
 You can also use the download section on the `sdb` github home page.
 
+For the arch users, you can just install the `sdb` package I maintain:
+    ``# pacman -S sdb``
+Or with `yaourt`:
+    ``$ yaourt -S sdb``
+
 2. Compiling
 ------------
 
