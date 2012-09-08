@@ -80,16 +80,15 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
                 writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
                 auto comp = new CCompiler(conf);
                 comp.compile(true);
+				comp.link(true);
                 break;
+
+			case "test" :
+				test(conf);
+				break;
 
             case "clean" :
                 clean(conf);
-                break;
-
-            case "install" :
-                break;
-
-            case "uninstall" :
                 break;
 
             default :
@@ -104,31 +103,39 @@ void build(CConfiguration conf) {
     writefln("building %s", conf.out_name);
     auto comp = new CCompiler(conf);
     if (comp.build(false))
-        comp.link();
+        comp.link(false);
 }
 
-/*
-void test(string[] ts = null) {
+void test(CConfiguration conf) {
     writefln("testing %s", conf.out_name);
-    if (ts is null) {
-        foreach (t; ts) {
- */
+
+	auto programs = array(dirEntries(".test", SpanMode.depth));
+	auto filesNb = programs.length;
+	foreach (int i, string t; programs) {
+		writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), t);
+		auto r = system(t);
+	}
+}
 
 void clean(CConfiguration conf) {
+	void remove_dir(string name) {
+		try {
+			auto files = array(dirEntries(name, SpanMode.depth));
+			foreach (f; files)
+				remove(f);
+			rmdir(name);
+		} catch (FileException e) {
+		}
+	}
+
     /* removing the application objects */
-    try {
-        auto files = array(dirEntries(".obj", SpanMode.depth));
-        foreach (f; files)
-            remove(f);
-        rmdir(".obj");
-    } catch (FileException e) {
-    }
-
+	remove_dir(".obj");
     /* removing the test objects */
-
+	remove_dir(".objt");
     /* removing the test programs */
+	remove_dir(".test");
 
-    /* removing the out */
+	/* removing the out */
     try {
         remove(conf.out_name);
     } catch (FileException e) {
@@ -341,15 +348,16 @@ final class CCompiler {
     }
 
     bool build(bool test) {
-        /* check if the .obj directory exists */
+		auto outdir = (test ? ".objt" : ".obj");
+		debug writefln("out dir is: %s", outdir);
+
+        /* check if the directory exists */
         try {
-            ".obj".isDir;
+            outdir.isDir;
         } catch (FileException e) {
-            /* let's create it */
-            mkdir(".obj");
+			mkdir(outdir);
         }
 
-        /* then compile the files */
         return compile(test);
     }
 
@@ -361,7 +369,7 @@ final class CCompiler {
             ~ object_str
             ~ bt ~ " "
             ~ (importDirs.length ? import_dir_str ~ reduce!("a ~ \" " ~ import_dir_str ~ "\"~ b")(importDirs) ~ " " : "")
-            ~ out_str ~ ".obj/";
+            ~ out_str ~ (test ? ".objt/" : ".obj/");
 
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
             try {
@@ -379,8 +387,8 @@ final class CCompiler {
                 auto obj = m ~ ".o";
                 if (timeLastModified(file) >= timeLastModified(obj, SysTime.min)) {
                     writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
-                    auto r = system(cmd ~ obj ~ " " ~ file);
                     debug writeln(cmd ~ obj ~ " " ~ file);
+                    auto r = system(cmd ~ obj ~ " " ~ file);
                     if (r != 0)
                         compiled = false;
                 }
@@ -399,18 +407,28 @@ final class CCompiler {
         return m[0 .. $-2];
     }
 
-    void link() {
-        writefln("Linking %s...", _conf.out_name);
-        auto files = array(dirEntries(".", "*.o", SpanMode.depth));
+    void link(bool test) {
+        writefln("Linking %s...", _conf.out_name ~ (test ? "\'s tests" : ""));
+		auto objdir = test ? ".objt" : ".obj";
+        auto files = array(dirEntries(objdir, "*.o", SpanMode.depth));
         string objects;
 
         if (files.length == 0)
             return;
-        foreach (string obj; files)
-            objects ~= obj ~ " ";
-        auto cmd = link_string_(_conf.out_name);
-        debug writeln(cmd ~ objects);
-        auto r = system(cmd ~ objects);
+		if (test) {
+			/* we have to link program one by one */
+			foreach (string obj; files) {
+				auto cmd = link_string_(".test/" ~ module_from_file_(obj));
+				debug writeln(cmd ~ obj);
+				auto r = system(cmd ~ obj);
+			}
+		} else {
+			foreach (string obj; files)
+				objects ~= obj ~ " ";
+			auto cmd = link_string_(_conf.out_name);
+			debug writeln(cmd ~ objects);
+			auto r = system(cmd ~ objects);
+		}
     }
 
     private string link_string_(string outName) {
