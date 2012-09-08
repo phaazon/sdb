@@ -92,7 +92,7 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
                 break;
 
             default :
-                writefln("usage: %s [build|test|clean]; '%s' is incorrect", args[0], a);
+                writefln("usage: %s [build|btest|test|clean]; '%s' is incorrect", args[0], a);
         }
     }
 
