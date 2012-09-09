@@ -18,5 +18,5 @@
 
 module common;
 
-enum build_type  { DEBUG, RELEASE };
-enum target_type { EXEC, STATIC, SHARED };
+enum EBuildType  { DEBUG, RELEASE };
+enum ETargetType { EXEC, STATIC, SHARED };

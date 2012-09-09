@@ -31,8 +31,8 @@ final class CConfiguration {
     private {
         alias void delegate(string[]) token_fun_t;
         token_fun_t[string] _tokenFunTbl;
-        build_type _bt;
-        target_type _tt;
+        EBuildType _bt;
+        ETargetType _tt;
         string[] _libDirs;
         string[] _libs;
         string[] _importDirs;
@@ -42,11 +42,11 @@ final class CConfiguration {
     }
 
     @property {
-        build_type bt() const {
+        EBuildType bt() const {
             return _bt;
         }
 
-        target_type tt() const {
+        ETargetType tt() const {
             return _tt;
         }
 
@@ -90,8 +90,8 @@ final class CConfiguration {
     }
 
     private void default_() {
-        _bt = build_type.DEBUG;
-        _tt = target_type.EXEC;
+        _bt = EBuildType.DEBUG;
+        _tt = ETargetType.EXEC;
         _srcDirs = [ "../src" ];
         _testDirs = [ "../test" ];
     }
@@ -153,11 +153,11 @@ final class CConfiguration {
         if (values.length == 1) {
             switch (values[0]) {
                 case "debug" :
-                    _bt = build_type.DEBUG;
+                    _bt = EBuildType.DEBUG;
                     break;
 
                 case "release" :
-                    _bt = build_type.RELEASE;
+                    _bt = EBuildType.RELEASE;
                     break;
 
                 default :
@@ -170,15 +170,15 @@ final class CConfiguration {
         if (values.length == 1) {
             switch (values[0]) {
                 case "exec" :
-                    _tt = target_type.EXEC;
+                    _tt = ETargetType.EXEC;
                     break;
 
                 case "static" :
-                    _tt = target_type.STATIC;
+                    _tt = ETargetType.STATIC;
                     break;
 
                 case "shared" :
-                    _tt = target_type.SHARED;
+                    _tt = ETargetType.SHARED;
                     break;
 
                 default :

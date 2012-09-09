@@ -49,11 +49,11 @@ final class CCompiler {
         string bt;
 
         final switch (_conf.bt) {
-            case build_type.DEBUG :
+            case EBuildType.DEBUG :
                 bt = "-debug -g";
                 break;
 
-            case build_type.RELEASE :
+            case EBuildType.RELEASE :
                 bt = "-release -O";
                 break;
         }
@@ -149,15 +149,15 @@ final class CCompiler {
         string bt = bt_();
         string tt;
         final switch (_conf.tt) {
-            case target_type.EXEC :
+            case ETargetType.EXEC :
                 tt = "";
                 break;
 
-            case target_type.STATIC :
+            case ETargetType.STATIC :
                 tt = "-lib";
                 break;
 
-            case target_type.SHARED :
+            case ETargetType.SHARED :
                 tt = "-lib -shared";
                 break;
         }
