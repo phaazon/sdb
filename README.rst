@@ -22,9 +22,9 @@ Or with `yaourt`:
 2. Compiling
 ------------
 
-Run into the downloaded repo (or extract the archive into a sdb directory), then simply compile and link the sdb.d file with your favourite D compiler. **Note: up to now, only the Digital D Mars compiler (DMD) is supported, the other ones will be supported later**. It is highly recommended to compile `sdb` with the best compilation flags. Here is the DMD example:
+Run into the downloaded repo (or extract the archive into a `sdb` directory), then simply compile and link all the .d files with your favourite D compiler. **Note: up to now, only the Digital D Mars compiler (DMD) is supported, the other ones will be supported later**. It is highly recommended to compile `sdb` with the best compilation flags. Here is the DMD example:
 
-    ``$ dmd -release -w -wi -O sdb.d``
+    ``$ dmd -release -w -wi -O ...``
 
 It will generate a `sdb` binary file in the same directory.
 
@@ -88,11 +88,6 @@ test:
     Used to run all the tests of the application.
 clean:
     Used to clean the build tree.
-install:
-    Used to install the application.
-uninstall:
-    Used to uninstall the application.
-**Note: up to now, only the build flags `build`, `btest` and `clean` are supported**. 
 
 You can build your application with the build flag then:
 
