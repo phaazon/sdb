@@ -1,6 +1,6 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    sdb, a Simple D Builder
-    Copyright (C) 2012 Dimitri 'skp' Sabadie <sabadie.dimitri@gmail.com> 
+    sdb, the Simple D Builder
+    Copyright (C) 2012 Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com> 
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ import std.stdio : writeln, writefln;
 import configuration;
 import compiler;
 
-enum VERSION = "0.7-090912";
+enum VERSION = "0.8-091612";
 
 int main(string[] args) {
     return dispatch_args(args);
@@ -35,10 +35,10 @@ int main(string[] args) {
 void vers() {
     writeln(
 "sdb " ~ VERSION ~ "
-Copyright (C) 2012  Dimitri 'skp' Sabadie <sabadie.dimitri@gmail.com>
+Copyright (C) 2012  Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com>
 This program comes with ABSOLUTELY NO WARRANTY; for details type `warranty'.
 This is free software, and you are welcome to redistribute it
-under certain conditions; type `conditions' for details.\n");
+under certain conditions; type `conditions' for details.");
 }
 
 
@@ -101,7 +101,7 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
                 break;
 
             default :
-                writefln("usage: %s [build|btest|test|clean]; '%s' is incorrect", args[0], a);
+                writefln("usage: %s [build] [btest] [test] [clean]; '%s' is incorrect", args[0], a);
         }
     }
 
