@@ -26,7 +26,7 @@ import std.stdio : writeln, writefln;
 import configuration;
 import compiler;
 
-enum VERSION = "0.8-091612";
+enum VERSION = "0.7-091612";
 
 int main(string[] args) {
     return dispatch_args(args);
