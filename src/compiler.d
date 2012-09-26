@@ -79,11 +79,12 @@ final class CCompiler {
         bool compiled = true;
         string bt = bt_();
         auto importDirs = _conf.import_dirs;
+        auto objdir = (test ? ".objt/" : ".obj/");
         auto cmd = compiler_str
             ~ object_str
             ~ bt ~ " "
             ~ (importDirs.length ? import_dir_str ~ reduce!("a ~ \" " ~ import_dir_str ~ "\"~ b")(importDirs) ~ " " : "")
-            ~ out_str ~ (test ? ".objt/" : ".obj/");
+            ~ out_str ~ objdir;
 
         foreach (string path; test ? _conf.test_dirs : _conf.src_dirs) {
             try {
@@ -95,11 +96,11 @@ final class CCompiler {
 
             auto files = array(dirEntries(path, "*.d", SpanMode.depth));
             auto filesNb = files.length;
-            writefln("%d file%s to compile", filesNb, (filesNb > 1 ? "s" : ""));
+            writefln("%d file%s to compile in %s", filesNb, (filesNb > 1 ? "s" : ""), path);
             foreach (int i, string file; files) {
                 auto m = module_from_file_(file);
                 auto obj = m ~ ".o";
-                if (timeLastModified(file) >= timeLastModified(obj, SysTime.min)) {
+                if (timeLastModified(file) >= timeLastModified(objdir ~ obj, SysTime.min)) {
                     writefln("--> [%4d%% | %s ]", cast(int)(((i+1)*100/filesNb)), m);
                     debug writeln(cmd ~ obj ~ " " ~ file);
                     auto r = system(cmd ~ obj ~ " " ~ file);
