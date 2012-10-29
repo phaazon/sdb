@@ -100,4 +100,4 @@ There is also a shortcut to the line above:
 III - Support
 =============
 
-If you have any problem or find any bug, do not hesitate to contact me at sabadie.dimitri@gmail.com. 
+If you have any problem or find any bug, do not hesitate to contact me at dimitri.sabadie@gmail.com. 
