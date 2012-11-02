@@ -32,6 +32,7 @@ final class CConfiguration {
 
     private {
         alias void delegate(string[]) token_fun_t;
+        string _confFileName;
         token_fun_t[string] _tokenFunTbl;
         EBuildType _bt;
         ETargetType _tt;
@@ -46,6 +47,10 @@ final class CConfiguration {
     }
 
     @property {
+        auto conf_file_name() const {
+            return _confFileName;
+        }
+        
         auto bt() const {
             return _bt;
         }
@@ -69,7 +74,7 @@ final class CConfiguration {
         auto root() const {
             return _root;
         }
-
+        
         auto entry_point() const {
             return _entryPoint;
         }
@@ -81,7 +86,7 @@ final class CConfiguration {
         auto out_name() const {
             return _outName;
         }
-
+        
         auto auto_scan() const {
             return _autoscan;
         }
@@ -128,7 +133,7 @@ final class CConfiguration {
             "TEST_DIR"    : &values_!"testDirs",
             "OUT_NAME"    : &values_!"outName",
             "AUTO_SCAN"   : &auto_scan_
-                ];
+        ];
     }
 
     private void load_(string file) {
@@ -152,13 +157,14 @@ final class CConfiguration {
             }
         }
 
+        _confFileName = file;
         check_dirs_();
     }
 
     private void check_dirs_() {
         void foreach_check_(string a)() {
             mixin("foreach (ref d; " ~ a ~ ")
-                    d = check_file_prefix_(d);");
+                       d = check_file_prefix_(d);");
         }
 
         foreach_check_!"_libDirs"();
@@ -188,7 +194,7 @@ final class CConfiguration {
                     return;
             }
         }
-
+        
         debug writefln("-- build type: %s", _bt);
     }
 
@@ -206,13 +212,13 @@ final class CConfiguration {
                 case "shared" :
                     _tt = ETargetType.SHARED;
                     break;
-
+ 
                 default :
                     writefln("warning: '%s' is not a correct target type", values[0]);
                     return;
             }
         }
-
+        
         debug writefln("-- target type: %s", _tt);
     }
 
@@ -225,24 +231,24 @@ final class CConfiguration {
             *r = values;
         debug writefln("-- %s: %s", token, values);
     }
-
+    
     private void auto_scan_(string[] values) {
         if (values.length == 1) {
             switch (values[0]) {
                 case "true" :
                     _autoscan = true;
                     break;
-
+                    
                 case "false" :
                     _autoscan = false;
                     break;
-
+                
                 default :
                     writefln("warning: '%s' is not a correct value for auto scan option (true/false)", values[0]);
                     return;
             }
         }
-
+        
         debug writefln("-- auto scan: %s", _autoscan ? "on" : "off");
     }
 }
