@@ -23,7 +23,7 @@ module sdb;
 import std.array : array;
 import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode;
 import std.process : system;
-import std.stdio : writeln, writefln, lines;
+import std.stdio : writeln, writef, writefln, lines;
 import configuration;
 import compiler;
 import common;
@@ -125,8 +125,24 @@ void build(CConfiguration conf) {
     auto comp = new CCompiler;
 	auto mfpath = scan(conf);
 
-	/* compile all the modules */
+	/* get all files to compile */ 
 	auto files = files_to_compile(conf, mfpath);
+
+	/* let's compile them */
+	writefln("compiling '%s'", conf.out_name);
+	auto filesNb = files.length;
+	string[] objs = new string[files.length];
+	foreach (ulong i, string file; files) {
+		auto obj = file_to_module(file, conf.root);
+        writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
+		objs[i] = ".obj/" ~ obj ~ ".o";
+		comp.compile(file, objs[i], conf.bt, conf.import_dirs);
+	}
+
+	debug writefln("-- object files to link: %s", objs);
+
+	/* finally link the program */
+	comp.link(objs, conf.out_name, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
 }
 
 string scan(CConfiguration conf) {
@@ -138,8 +154,10 @@ string scan(CConfiguration conf) {
 
 /* Get the list of the files that are part of the compilation process. */
 string[] files_to_compile(CConfiguration conf, string mfpath) {
+	writefln("getting files to compile...");
+
 	if (!mfpath.exists) {
-		writeln("warning: %s is does not exist, aborting...", mfpath);
+		writefln("warning: %s does not exist, aborting...", mfpath);
 		throw new CAbortLoading;
 	}
 

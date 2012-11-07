@@ -54,8 +54,8 @@ final class CCompiler {
         enum LIB_DECL        = "-L-l";
         enum IMPORT_DIR_DECL = "-I";
         enum OUT_DECL        = "-of";
-        enum BT_DEBUG        = "-debug -g";
-        enum BT_RELEASE      = "-release -O";
+        enum BT_DEBUG        = "-debug -g ";
+        enum BT_RELEASE      = "-release -O ";
         enum TT_EXEC         = " ";
         enum TT_STATIC       = "-lib ";
         enum TT_SHARED       = "-lib -shared ";
@@ -103,17 +103,17 @@ final class CCompiler {
     }
 
     /* compile the given file into an object file which path and name are given */
-    bool compile(string file, string obj, EBuildType buildtype, string[] importDirs) {
+    bool compile(string file, string obj, EBuildType buildtype, const(string)[] importDirs) {
         auto compiled = true;
         auto bt = bt_(buildtype);
         auto cmd = COMPILER_CMD
             ~ OBJECT_FLAG
             ~ bt
             ~ (importDirs.length ? IMPORT_DIR_DECL ~ reduce!("a ~ \" " ~ IMPORT_DIR_DECL ~ "\"~ b")(importDirs) ~ " " : "")
-            ~ OUT_DECL ~ ".obj/";
+            ~ OUT_DECL;
 
         if (timeLastModified(file) >= timeLastModified(obj, SysTime.min)) {
-            debug writeln("-- %s%s %s", cmd, obj, file);
+            debug writefln("-- %s%s %s", cmd, obj, file);
             auto r = system(cmd ~ obj ~ " " ~ file);
             if (r != 0)
                 compiled = false;
@@ -123,7 +123,7 @@ final class CCompiler {
     }
 
     /* Link objects into a target output. */
-    void link(string[] objs, string output, EBuildType buildtype, ETargetType targettype, string[] libDirs, string[] libs) {
+    void link(string[] objs, string output, EBuildType buildtype, ETargetType targettype, const(string)[] libDirs, const(string)[] libs) {
         string objects = join(objs, " ");
         auto bt = bt_(buildtype);
         auto tt = tt2str_(targettype);
@@ -134,7 +134,7 @@ final class CCompiler {
             ~ (libs.length ? LIB_DECL ~ reduce!("a ~ \" " ~ LIB_DECL ~ "\"~ b")(libs) ~ " " : "")
             ~ OUT_DECL ~ output ~ " ";
 
-        debug writeln("-- %s%s", cmd, objects);
+        debug writefln("-- %s%s", cmd, objects);
         system(cmd ~ objects);
     }
 }

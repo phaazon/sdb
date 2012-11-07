@@ -2,6 +2,6 @@ BUILD debug
 TARGET exec
 ROOT ../src
 ENTRY_POINT main
+IMPORT_DIR ../src/ ../src/
 TEST_DIR ../test
 OUT_NAME test
-AUTO_SCAN on

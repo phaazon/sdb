@@ -41,6 +41,13 @@ string module_to_file(string m, string rootsrc) {
     return rootsrc ~ '/' ~ m;
 }
 
+string file_to_module(string f, string rootsrc) {
+	f.length -= 2; /* popout the .d suffix */
+	f = f[rootsrc.length+1 .. $]; /* popout the root prefix */
+	f = f.replace("/", ".");
+	return f;
+}
+
 /* A linear search function. */
 bool any(alias __Pred, __Range)(__Range r) {
     foreach (a; r) {

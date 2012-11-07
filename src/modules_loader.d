@@ -45,7 +45,7 @@ class CModulesLoader {
     string scan(string m) {
         string[] modules;
         string moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
-        
+		
         debug writefln("-- scanning %s module...", m);
         scan_extract_(m, modules);
         debug writefln("-- scan finished; modules = %s", modules);
@@ -57,6 +57,7 @@ class CModulesLoader {
         auto fh = File(moddir, "w");
         /* TODO: treat the case when it's not open. */
         if (fh.isOpen) {
+			fh.writeln(m);
             foreach (_; modules)
                 fh.writeln(_);
         } else {
@@ -107,7 +108,7 @@ class CModulesLoader {
                 }
             }
         }
-        
+
         /* recursively scan the imported modules */
         foreach (_; toScan)
             scan_extract_(_, modules);
