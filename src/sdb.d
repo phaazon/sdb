@@ -21,15 +21,15 @@
 module sdb;
 
 import std.array : array;
-import std.file : dirEntries, FileException, remove, rmdir, SpanMode;
+import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode;
 import std.process : system;
-import std.stdio : writeln, writefln;
+import std.stdio : writeln, writefln, lines;
 import configuration;
 import compiler;
 import common;
 import modules_loader;
 
-enum VERSION = "0.8-103012";
+enum VERSION = "0.8-MMDDYY";
 
 int main(string[] args) {
     return dispatch_args(args);
@@ -87,7 +87,8 @@ int dispatch_args(string[] args) {
                 break;
 
             case "scan" :
-                break;
+				scan(conf);
+				break;
 
             case "btest" :
                 /*
@@ -120,12 +121,54 @@ int dispatch_args(string[] args) {
 }
 
 void build(CConfiguration conf) {
-    writefln("building %s", conf.out_name);
+    writefln("building '%s'", conf.out_name);
     auto comp = new CCompiler;
+	auto mfpath = scan(conf);
 
-    /* test : scan */
-    auto mloader = new CModulesLoader(conf);
-    mloader.scan(conf.entry_point);
+	/* compile all the modules */
+	auto files = files_to_compile(conf, mfpath);
+}
+
+string scan(CConfiguration conf) {
+	writefln("scanning module '%s' for '%s'", conf.entry_point, conf.out_name);
+	auto mloader = new CModulesLoader(conf);
+
+	return mloader.scan(conf.entry_point);
+}
+
+/* Get the list of the files that are part of the compilation process. */
+string[] files_to_compile(CConfiguration conf, string mfpath) {
+	if (!mfpath.exists) {
+		writeln("warning: %s is does not exist, aborting...", mfpath);
+		throw new CAbortLoading;
+	}
+
+	try {
+		if (!mfpath.isFile) {
+			writefln("warning: %s is not a directory, aborting...", mfpath);
+			throw new CAbortLoading;
+		}
+	} catch (const FileException e) {
+		throw e;
+	}
+
+	string[] files;
+	auto fh = File(mfpath, "r");
+
+	if (!fh.isOpen) {
+		writeln("warning: unable to open %s, aborting...", mfpath);
+		throw new CAbortLoading;
+	}
+
+	foreach (string line; lines(fh)) {
+		line = strip(line);
+		++files.length;
+		files[$-1] = module_to_file(line, conf.root);
+		debug writefln("-- added %s to the files to compile", files[$-1]);
+	}
+
+	debug writefln("-- files to compile: %s", files);
+	return files;
 }
 
 void test(CConfiguration conf) {

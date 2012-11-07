@@ -27,7 +27,7 @@ import configuration : CConfiguration;
 import common;
 
 /* This module is used to retrieve / scan all the modules to be compiled
-for a givent module. */
+for a given module. */
 
 class CModulesLoader {
     enum MODULES_DIR_SUFFIX = "_modules";
@@ -42,7 +42,7 @@ class CModulesLoader {
     }
     
     /* Launch a modules scan and output the result in the corresponding file. */
-    void scan(string m) {
+    string scan(string m) {
         string[] modules;
         string moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
         
@@ -53,21 +53,23 @@ class CModulesLoader {
         debug writefln("-- outputing the modules in %s", moddir);
         check_modules_dir_(moddir);
         
-        auto fh = File(moddir ~ '/' ~ m ~ MODULES_FILE_EXT, "w");
+		moddir = moddir ~ '/' ~ m ~ MODULES_FILE_EXT;
+        auto fh = File(moddir, "w");
         /* TODO: treat the case when it's not open. */
         if (fh.isOpen) {
             foreach (_; modules)
                 fh.writeln(_);
         } else {
-            debug writefln("-- unable to write %s modules file", moddir ~ m ~ MODULES_FILE_EXT);
+            debug writefln("-- unable to write %s modules file", moddir);
         }
+
+		return moddir;
     }
     
     /* Scan a module and extract the corresponding modules file. */
     private void scan_extract_(string m, ref string[] modules) {
         auto path = module_to_file(m, _conf.root);
 
-        /* TODO: refactor this with the same code as in configuration.d */
         try {
             if (!path.isFile)
                 return;
@@ -87,7 +89,6 @@ class CModulesLoader {
             line = strip(line);
             if (line.length > IMPORT_LENGTH) {
                 if (line[0 .. IMPORT_LENGTH] == "import " && line[$-1] == ';') {
-                    /* valid import */
                     line = line[IMPORT_LENGTH .. countUntil!("a == ';' || a == ':'")(line)];
                     strip(line);
                     debug writefln("-- %s imports %s", path, line);
@@ -100,7 +101,7 @@ class CModulesLoader {
                             /* modules to scan */
                             ++toScan.length;
                             toScan[$-1] = line;
-                            writefln("--> %s found", line);
+                            writefln("--> found module '%s'", line);
                         }
                     }
                 }

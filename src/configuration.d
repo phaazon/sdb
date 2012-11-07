@@ -235,11 +235,11 @@ final class CConfiguration {
     private void auto_scan_(string[] values) {
         if (values.length == 1) {
             switch (values[0]) {
-                case "true" :
+                case "on" :
                     _autoscan = true;
                     break;
                     
-                case "false" :
+                case "off" :
                     _autoscan = false;
                     break;
                 

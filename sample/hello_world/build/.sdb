@@ -4,3 +4,4 @@ ROOT ../src
 ENTRY_POINT main
 TEST_DIR ../test
 OUT_NAME test
+AUTO_SCAN on
