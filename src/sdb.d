@@ -37,11 +37,11 @@ int main(string[] args) {
 
 void vers() {
     writeln(
-            "sdb " ~ VERSION ~ "
-            Copyright (C) 2012  Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com>
-            This program comes with ABSOLUTELY NO WARRANTY; for details type `warranty'.
-            This is free software, and you are welcome to redistribute it
-            under certain conditions; type `conditions' for details.");
+"sdb " ~ VERSION ~ "
+Copyright (C) 2012  Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com>
+This program comes with ABSOLUTELY NO WARRANTY; for details type `warranty'.
+This is free software, and you are welcome to redistribute it
+under certain conditions; type `conditions' for details.");
 }
 
 
@@ -51,14 +51,14 @@ int dispatch_args(string[] args) {
     if (args.length == 2) {
         if (args[1] == "warranty") {
             writeln(
-                    "  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
-                    APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
-                    HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY
-                    OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
-                    THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-                    PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
-                    IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
-                    ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
+"  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY
+OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
+IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
+ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
             return 0;
         } else if (args[1] == "conditions") {
             writeln("See the COPYING file for more details.");
@@ -107,9 +107,7 @@ int dispatch_args(string[] args) {
                 break;
 
             case "clean" :
-                /*
-                   clean(conf);
-                 */
+				clean(conf);
                 break;
 
             default :
@@ -135,8 +133,9 @@ void build(CConfiguration conf) {
 	foreach (ulong i, string file; files) {
 		auto obj = file_to_module(file, conf.root);
         writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
-		objs[i] = ".obj/" ~ obj ~ ".o";
-		comp.compile(file, objs[i], conf.bt, conf.import_dirs);
+		obj = ".obj/" ~ obj ~ ".o";
+		if (comp.compile(file, obj, conf.bt, conf.import_dirs))
+			objs[i] = obj;
 	}
 
 	debug writefln("-- object files to link: %s", objs);
@@ -201,22 +200,28 @@ void test(CConfiguration conf) {
 }
 
 void clean(CConfiguration conf) {
-    void remove_dir(string name) {
+    void remove_dir_(string name) {
         try {
             auto files = array(dirEntries(name, SpanMode.depth));
-            foreach (f; files)
+            foreach (string f; files) {
                 remove(f);
+				debug writefln("-- removing %s", f);
+			}
+
             rmdir(name);
+			debug writefln("-- removing %s", name);
         } catch (FileException e) {
         }
     }
 
     /* removing the application objects */
-    remove_dir(".obj");
+    remove_dir_(".obj");
     /* removing the test objects */
-    remove_dir(".objt");
+    remove_dir_(".objt");
+	/* removing the .sdbm modules description files */
+	remove_dir_(".sdb_modules"); /* FIXME: fuckit :D */
     /* removing the test programs */
-    remove_dir(".test");
+    remove_dir_(".test");
 
     /* removing the out */
     try {

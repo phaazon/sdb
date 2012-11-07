@@ -1,4 +1,5 @@
 BUILD debug
 TARGET static
-SRC_DIR ../src
+ROOT ../src
+ENTRY_POINT alpha 
 OUT_NAME libalpha.so
