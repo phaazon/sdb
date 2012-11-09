@@ -76,28 +76,22 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
     }
 
     if (args.length == 1) {
-        build(conf);
+        build(conf, conf.entry_point, conf.out_name);
         return 0;
     }
 
     foreach (a; args[1 .. $]) {
         switch (a) {
             case "build" :
-                build(conf);
+                build(conf, conf.entry_point, conf.out_name);
                 break;
 
             case "scan" :
-				scan(conf);
+				scan(conf, conf.entry_point);
 				break;
 
-            case "btest" :
-                /*
-                   auto outName = conf.out_name;
-                   writefln("building %s tests", outName ~ (outName[$-1] == 's' ? "'" : "'s"));
-                   auto comp = new CCompiler(conf);
-                   if (comp.compile(true))
-                   comp.link(true);
-                 */
+            case "build_tests" :
+                build_tests(conf);
                 break;
 
             case "test" :
@@ -118,10 +112,10 @@ ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
     return 0;
 }
 
-void build(CConfiguration conf) {
-    writefln("building '%s'", conf.out_name);
+void build(CConfiguration conf, string m, string output) {
+    writefln("building %s", m);
     auto comp = new CCompiler;
-	auto mfpath = scan(conf);
+	auto mfpath = scan(conf, m);
 
 	/* get all files to compile */ 
 	auto files = files_to_compile(conf, mfpath);
@@ -143,14 +137,27 @@ void build(CConfiguration conf) {
 	debug writefln("-- object files to link: %s", objs);
 
 	/* finally link the program */
-	comp.link(objs, conf.out_name, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
+	comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
 }
 
-string scan(CConfiguration conf) {
-	writefln("scanning module '%s' for '%s'", conf.entry_point, conf.out_name);
+void build_tests(CConfiguration conf) {
+    writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
+
+    foreach (testDir; conf.test_dirs) {
+        debug writefln("-- test directory %s", testDir);
+        auto tests = dirEntries(testDir, "*.d", SpanMode.depth);
+        foreach (test; tests) {
+            auto m = file_to_module(test, conf.root);
+            build(conf, m, m);
+        }
+    }
+}
+
+string scan(CConfiguration conf, string m) {
+	writefln("scanning module '%s' for '%s'", m, conf.out_name);
 	auto mloader = new CModulesLoader(conf);
 
-	return mloader.scan(conf.entry_point);
+	return mloader.scan(m);
 }
 
 /* Get the list of the files that are part of the compilation process. */
@@ -191,7 +198,7 @@ string[] files_to_compile(CConfiguration conf, string mfpath) {
 }
 
 void test(CConfiguration conf) {
-    writefln("testing %s", conf.out_name);
+    writefln("testing '%s'", conf.out_name);
 
     auto programs = array(dirEntries(".test", SpanMode.depth));
     auto filesNb = programs.length;
