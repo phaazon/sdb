@@ -18,6 +18,9 @@
 
 module modules_loader;
 
+/* This module is used to retrieve / scan all the modules to be compiled
+for a given module. */
+
 import std.algorithm : countUntil;
 import std.array : empty;
 import std.file;
@@ -25,9 +28,6 @@ import std.stdio;
 import std.string : strip;
 import configuration : CConfiguration;
 import common;
-
-/* This module is used to retrieve / scan all the modules to be compiled
-for a given module. */
 
 class CModulesLoader {
     enum MODULES_DIR_SUFFIX = "_modules";
