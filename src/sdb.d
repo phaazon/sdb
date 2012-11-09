@@ -125,11 +125,13 @@ void build(CConfiguration conf) {
 
 	/* get all files to compile */ 
 	auto files = files_to_compile(conf, mfpath);
+	files = files.sort;
 
 	/* let's compile them */
 	writefln("compiling '%s'", conf.out_name);
 	auto filesNb = files.length;
 	string[] objs = new string[files.length];
+	writefln("compiling %d files...", filesNb);
 	foreach (ulong i, string file; files) {
 		auto obj = file_to_module(file, conf.root);
         writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);

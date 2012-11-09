@@ -89,8 +89,9 @@ class CModulesLoader {
         foreach (string line; lines(fh)) {
             line = strip(line);
             if (line.length > IMPORT_LENGTH) {
-                if (line[0 .. IMPORT_LENGTH] == "import " && line[$-1] == ';') {
-                    line = line[IMPORT_LENGTH .. countUntil!("a == ';' || a == ':'")(line)];
+				auto importIndex = countUntil(line, "import ");
+                if (importIndex >= 0 && line[$-1] == ';') {
+                    line = line[(importIndex + IMPORT_LENGTH) .. countUntil!("a == ';' || a == ':'")(line)];
                     strip(line);
                     debug writefln("-- %s imports %s", path, line);
                     if (!any!((string a) => a == line)(modules)) {
