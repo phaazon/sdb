@@ -29,7 +29,7 @@ import compiler;
 import common;
 import modules_loader;
 
-enum VERSION = "0.8-MMDDYY";
+enum VERSION = "0.8-111112";
 
 int main(string[] args) {
     return dispatch_args(args);
