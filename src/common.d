@@ -18,5 +18,46 @@
 
 module common;
 
+import std.array : replace;
+
 enum EBuildType  { DEBUG, RELEASE };
 enum ETargetType { EXEC, STATIC, SHARED };
+
+final class CAbortLoading : Exception {
+    this() {
+        super("");
+    }
+}
+
+string module_to_file(string m, string rootsrc) {
+    /* a module has the form:
+     *   foo.bar.test.final.math.matrix
+     * the corresponding file is:
+     *   $(ROOT_SRC)/foo/bar/test/final/math/matrix.d
+     */
+    
+    m = m.replace(".", "/");
+    m ~= ".d";
+    return rootsrc ~ '/' ~ m;
+}
+
+string file_to_module(string f, string rootsrc) {
+	f.length -= 2; /* popout the .d suffix */
+	f = f[rootsrc.length+1 .. $]; /* popout the root prefix */
+	f = f.replace("/", ".");
+	return f;
+}
+
+/* A linear search function. */
+bool any(alias __Pred, __Range)(__Range r) {
+    foreach (a; r) {
+        static if (is(typeof(__Pred) : string)) {
+            mixin("return (" ~ __Pred ~ ");");
+        } else {
+            if (__Pred(a))
+                return true;
+        }
+    }
+    
+    return false;
+}

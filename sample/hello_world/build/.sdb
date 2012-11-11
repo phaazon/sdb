@@ -1,5 +1,7 @@
 BUILD debug
 TARGET exec
-SRC_DIR ../src
-OUT_NAME test
+ROOT ../src
+ENTRY_POINT main
+IMPORT_DIR ../src/ ../src/
 TEST_DIR ../test
+OUT_NAME test
