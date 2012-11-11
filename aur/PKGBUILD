@@ -1,0 +1,25 @@
+# Maintainer: Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com>
+pkgname=sdb
+pkgver=0.8
+pkgrel=4
+pkgdesc="The Simple D Builder"
+arch=('any')
+url="http://github.com/skypers/sdb"
+license=('GPL')
+makedepends=('git' 'dmd')
+source=('https://github.com/skypers/sdb/tarball/v'$pkgver)
+md5sums=('98261096db9c973b56f05fb502b3c289')
+
+build() {
+    msg "Decompressing sources..."
+    tar -xzf v$pkgver
+
+    msg "Building sources..."
+    cd skypers-sdb-946655c/src
+    dmd -release -O sdb common configuration compiler modules_loader -of../../sdb   
+}
+
+package() {
+    mkdir -p $pkgdir/usr/local/bin
+    cp sdb $pkgdir/usr/local/bin
+}
