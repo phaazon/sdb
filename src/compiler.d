@@ -28,6 +28,12 @@ import std.stdio : writeln, writefln;
 import common;
 import configuration;
 
+enum ECompileState {
+    COMPILED, /* module successfully compiled */
+    ALREADY, /* module already compiled */
+    FAIL /* module failed to compile */
+}
+
 final class CCompiler {
     /* Note: to add the use of a new compiler, just fill in, copy and paste the below version block
        under the others:
@@ -103,8 +109,8 @@ final class CCompiler {
     }
 
     /* compile the given file into an object file which path and name are given */
-    bool compile(string file, string obj, EBuildType buildtype, const(string)[] importDirs) {
-        auto compiled = true;
+    ECompileState compile(string file, string obj, EBuildType buildtype, const(string)[] importDirs) {
+        auto state = ECompileState.ALREADY;
         auto bt = bt_(buildtype);
         auto cmd = COMPILER_CMD
             ~ OBJECT_FLAG
@@ -113,13 +119,14 @@ final class CCompiler {
             ~ OUT_DECL;
 
         if (timeLastModified(file) >= timeLastModified(obj, SysTime.min)) {
+            state = ECompileState.COMPILED;
             debug writefln("-- %s%s %s", cmd, obj, file);
             auto r = system(cmd ~ obj ~ " " ~ file);
             if (r != 0)
-                compiled = false;
+                state = ECompileState.FAIL;
         }
 
-        return compiled;
+        return state;
     }
 
     /* Link objects into a target output. */

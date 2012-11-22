@@ -29,7 +29,7 @@ import compiler;
 import common;
 import modules_loader;
 
-enum VERSION = "0.8-111112";
+enum VERSION = "0.9-122212";
 
 int main(string[] args) {
     return dispatch_args(args);
@@ -128,10 +128,14 @@ void build(CConfiguration conf, string m, string output) {
 	writefln("compiling %d files...", filesNb);
 	foreach (ulong i, string file; files) {
 		auto obj = file_to_module(file, conf.root);
-        writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
 		obj = ".obj/" ~ obj ~ ".o";
-		if (comp.compile(file, obj, conf.bt, conf.import_dirs))
+		auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
+
+        if (state != ECompileState.FAIL) {
 			objs[i] = obj;
+            if (state == ECompileState.COMPILED)
+                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
+        }
 	}
 
 	debug writefln("-- object files to link: %s", objs);
