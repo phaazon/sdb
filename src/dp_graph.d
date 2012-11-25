@@ -18,5 +18,36 @@
 
 module dp_graph;
 
+
+import std.algorithm : find;
+
 /* This module contains the dependencies graph (modules dependencies). */
 
+final class CDPGraph {
+    private {
+        string[] _modules; /* all the modules of the project */
+        int[] _dep; /* dependencies matrix: (x;y) -> y is a dependency of x */
+    }
+
+    this() {
+    }
+
+    /* add a module in the graph */
+    void add_module(string name) {
+        _modules ~= name;
+    }
+
+    /* add a new dependency between two modules */
+    void add_dep(string x, string y) {
+        /* first thing to do: look for both the module to exist */
+        auto xf = find(_modules, x); /* x found */
+        auto yf = find(_modules, y); /* y found */
+
+        if ( xf.empty || yf.empty ) {
+            /* trying to add a dependency between two modules with one of them doesn't exist, abort */
+            /* TODO: to rewrite a correct way */
+            throw new Exception("(" ~ x ~ ";" ~ y ~ ") is not a valid dependency");
+        }
+
+    }
+}
