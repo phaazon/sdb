@@ -68,14 +68,16 @@ OUT_NAME:
 
 Each keyword is followed by a blank (or several ones), and by a token or a list of values. Here is a sample:
 
-    ``BUILD debug
+::
+
+    BUILD debug
     TARGET exec
     ROOT ../src
     ENTRY_POINT main
     OUT_NAME test
     IMPORT_DIR /usr/test
     LIB_DIR ../lib
-    LIB DerelictUtil``
+    LIB DerelictUtil
 
 The order the keywords appear does not matter, but they have to be upcase.
 
