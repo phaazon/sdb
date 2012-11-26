@@ -1,35 +1,38 @@
 ================
 Simple D Builder
 ================
-
 The `Simple D Builder`, a.k.a `sdb` provides a simple solution to build your D projects. It currently supports compilation and linking. Testing will be supported soon.
 
 I - Getting started
 ===================
-
 1. Downloading
 --------------
-
 You can download `sdb` on github by cloning the official repository:
-    ``$ git clone git@github.com:skypers/sdb.git``
+
+``$ git clone git@github.com:skypers/sdb.git``
+
 You can also use the download section on the `sdb` github home page.
 For the arch users, you can just install the `sdb` package I maintain:
-    ``# pacman -S sdb``
-Or with `yaourt`:
-    ``$ yaourt -S sdb``
+
+``# pacman -S sdb``
+
+Or with yaourt:
+
+``$ yaourt -S sdb``
 
 2. Compiling
 ------------
-
 Run into the downloaded repo (or extract the archive into a `sdb` directory), then simply compile and link all the .d files with your favourite D compiler. **Note: up to now, only the Digital D Mars compiler (DMD) is supported, the other ones will be supported later**. It is highly recommended to compile `sdb` with the best compilation flags. Here is the DMD case:
-    ``$ dmd -release -w -wi -O ...``
+
+``$ dmd -release -w -wi -O ...``
+
 It will generate a `sdb` binary file in the same directory.
 
 3. Installing
 -------------
-
 There is no support for install steps up to now, so you will have to place `sdb` in the installation directory on your own. On \*nix systems, you can install it into /usr/local/bin, or ~/bin, adjusting your PATH env variable:
-    ``$ sudo cp ./sdb /usr/local/bin``
+
+``$ sudo cp ./sdb /usr/local/bin``
 
 II - Using `sdb`
 ================
