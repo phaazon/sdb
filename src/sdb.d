@@ -29,13 +29,19 @@ import compiler;
 import common;
 import modules_loader;
 
-enum VERSION = "0.9-112212";
+enum VERSION = "0.9.1-112612";
+enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
-    return dispatch_args(args);
+    try {
+        return dispatch_args(args);
+    } catch (const Exception e) {
+        writefln("error: %s", e.msg);
+        return 1;
+    }
 }
 
-void vers() {
+void print_vers() {
     writeln(
 "sdb " ~ VERSION ~ "
 Copyright (C) 2012  Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com>
@@ -44,13 +50,8 @@ This is free software, and you are welcome to redistribute it
 under certain conditions; type `conditions' for details.");
 }
 
-
-int dispatch_args(string[] args) {
-    CConfiguration conf;
-
-    if (args.length == 2) {
-        if (args[1] == "warranty") {
-            writeln(
+void print_warranty() {
+    writeln(
 "  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
 HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY
@@ -59,63 +60,97 @@ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
 PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
 IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
 ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
-            return 0;
-        } else if (args[1] == "conditions") {
-            writeln("See the COPYING file for more details.");
-            return 0;
-        } else if (args[1] == "version") {
-            vers();
-            return 0;
+}
+
+int dispatch_args(string[] args) {
+    auto argc = args.length;
+    
+    if (argc == 1) {
+        /* invoked with no arguments, simply print the version */
+        print_vers();
+        return 0;
+    } else if (argc == 2) {
+        /* one argument passed */
+        switch (args[1]) {
+            case "warranty" :
+                print_warranty();
+                return 0;
+            case "conditions" :
+                writeln("See the COPYING file for more details.");
+                return 0;
+            case "version" :
+                print_vers();
+                return 0;
+            default :
+                break;
         }
     }
 
-    try {
-        conf = new CConfiguration(".sdb");
-    } catch (const CAbortLoading e) {
-        return 1;
-    }
-
-    if (args.length == 1) {
-        build(conf, conf.entry_point, conf.out_name);
-        return 0;
-    }
-
-    foreach (a; args[1 .. $]) {
-        switch (a) {
+    /* if we go here we have more than one argument */
+    string compiler;
+    string confPath = DEFAULT_CONF_PATH;
+    bool doBuild = false;
+    bool doClean = false;
+    for (auto i = 1; i < argc; ++i) {
+        switch(args[i]) {
+            /* select the compiler to use */
+            case "with" :
+                if (i < argc-1)
+                    compiler = args[i+1];
+                i += 2;
+                break;
+            /* build */
             case "build" :
-                build(conf, conf.entry_point, conf.out_name);
+                doBuild = true;
                 break;
-
-            case "scan" :
-				scan(conf, conf.entry_point);
-				break;
-
-            case "build_tests" :
-                build_tests(conf);
-                break;
-
-            case "test" :
-                /*
-                   test(conf);
-                 */
-                break;
-
             case "clean" :
-				clean(conf);
+                doClean = true;
                 break;
-
             default :
-                writefln("usage: %s [build|scan|btest|test|clean] [CONFIG_FILE]; '%s' is incorrect", args[0], a);
+                writefln("'%s' is incorrect", args[i]);
+                usage(args[0]);
+                return 1;
+        }
+    }
+    
+    auto conf = new CConfiguration(confPath);
+    if (doClean) {
+        /* clean all sdb output traces */
+        debug writeln("-- cleaning...");
+        clean(conf);
+    }
+    
+    if (!compiler.empty) {
+        /* user passed a compiler, so let's determine what to do with */
+        if (!doClean || doBuild) {
+            debug writeln("-- building...");
+            build(conf, conf.entry_point, conf.out_name, compiler);
         }
     }
 
     return 0;
 }
 
-void build(CConfiguration conf, string m, string output) {
-    writefln("building %s", m);
-    auto comp = new CCompiler;
+void usage(string progName) {
+    writeln(
+"usage:\n\t" ~
+progName ~ " [build] with <compiler>\n\t" ~
+progName ~ " clean\n\t" ~
+progName ~ " build test with <compiler>");
+}
+
+void build(CConfiguration conf, string m, string output, string compiler) {
+    writefln("building %s with %s", m, compiler);
+    auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
 	auto mfpath = scan(conf, m);
+    
+    version ( Posix ) {
+        enum OBJ_EXT = ".o";
+    } else version ( Windows ) {
+        enum OBJ_EXT = ".obj";
+    } else {
+        static assert (0, "unsupported operating system");
+    }
 
 	/* get all files to compile */ 
 	auto files = files_to_compile(conf, mfpath);
@@ -126,9 +161,9 @@ void build(CConfiguration conf, string m, string output) {
 	auto filesNb = files.length;
 	string[] objs = new string[files.length];
 	writefln("compiling %d files...", filesNb);
-	foreach (ulong i, string file; files) {
+	foreach (uint i, string file; files) {
 		auto obj = file_to_module(file, conf.root);
-		obj = ".obj/" ~ obj ~ ".o";
+		obj = ".obj/" ~ obj ~ OBJ_EXT;
 		auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
 
         if (state != ECompileState.FAIL) {
@@ -139,11 +174,11 @@ void build(CConfiguration conf, string m, string output) {
 	}
 
 	debug writefln("-- object files to link: %s", objs);
-
 	/* finally link the program */
 	comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
 }
 
+version ( none ) {
 void build_tests(CConfiguration conf) {
     writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
 
@@ -155,6 +190,7 @@ void build_tests(CConfiguration conf) {
             build(conf, m, m);
         }
     }
+}
 }
 
 string scan(CConfiguration conf, string m) {
