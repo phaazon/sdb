@@ -40,7 +40,7 @@ final class CCompiler {
     alias typeof(this) that;
     
     /* FIXME: move that with a string import */
-    enum SDB_CONFIG_DIR = chomp(import("conf_dir.dcfg"), "/") ~ "/";
+    enum SDB_CONFIG_DIR = chomp(import("conf_dir.dcfg"), dirSeparator) ~ dirSeparator;
 
     private {
         string _invocation;

@@ -29,7 +29,7 @@ import compiler;
 import common;
 import modules_loader;
 
-enum VERSION = "0.9.1-112612";
+enum VERSION = "0.9.1-112712";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
@@ -91,6 +91,7 @@ int dispatch_args(string[] args) {
     string confPath = DEFAULT_CONF_PATH;
     bool doBuild = false;
     bool doClean = false;
+    bool doScan = false;
     for (auto i = 1; i < argc; ++i) {
         switch(args[i]) {
             /* select the compiler to use */
@@ -99,9 +100,11 @@ int dispatch_args(string[] args) {
                     compiler = args[i+1];
                 i += 2;
                 break;
-            /* build */
             case "build" :
                 doBuild = true;
+                break;
+            case "scan" :
+                doScan = true;
                 break;
             case "clean" :
                 doClean = true;
@@ -118,6 +121,10 @@ int dispatch_args(string[] args) {
         /* clean all sdb output traces */
         debug writeln("-- cleaning...");
         clean(conf);
+    }
+    
+    if (doScan) {
+        scan(conf, conf.entry_point);
     }
     
     if (!compiler.empty) {
@@ -142,7 +149,8 @@ progName ~ " build test with <compiler>");
 void build(CConfiguration conf, string m, string output, string compiler) {
     writefln("building %s with %s", m, compiler);
     auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
-	auto mfpath = scan(conf, m);
+    auto scanner = new CModulesLoader(conf);
+    auto mfpath = scanner.get_cache_path(m);
     
     version ( Posix ) {
         enum OBJ_EXT = ".o";
@@ -152,30 +160,39 @@ void build(CConfiguration conf, string m, string output, string compiler) {
         static assert (0, "unsupported operating system");
     }
 
-	/* get all files to compile */ 
-	auto files = files_to_compile(conf, mfpath);
-	files = files.sort;
+    /* get all files to compile */ 
+    auto files = files_to_compile(conf, mfpath);
+    files = files.sort;
 
-	/* let's compile them */
-	writefln("compiling '%s'", conf.out_name);
-	auto filesNb = files.length;
-	string[] objs = new string[files.length];
-	writefln("compiling %d files...", filesNb);
-	foreach (uint i, string file; files) {
-		auto obj = file_to_module(file, conf.root);
-		obj = ".obj/" ~ obj ~ OBJ_EXT;
-		auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
+    /* let's compile them */
+    
+    auto filesNb = files.length;
+    bool compiled = true;
+    string[] objs = new string[files.length];
+    
+    writefln("compiling '%s' (%d files)", conf.out_name, filesNb);
+    foreach (uint i, string file; files) {
+        auto obj = file_to_module(file, conf.root);
+        obj = ".obj" ~ dirSeparator ~ obj ~ OBJ_EXT;
+        auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
 
         if (state != ECompileState.FAIL) {
-			objs[i] = obj;
+            objs[i] = obj;
             if (state == ECompileState.COMPILED)
                 writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
+        } else {
+            compiled = false;
         }
-	}
+    }
 
-	debug writefln("-- object files to link: %s", objs);
-	/* finally link the program */
-	comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
+    
+    /* finally link the program */
+    if (compiled) {
+        debug writefln("-- object files to link: %s", objs);
+        comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
+    } else {
+        writeln("link aborted because of compilation errors");
+    }
 }
 
 version ( none ) {
@@ -194,47 +211,47 @@ void build_tests(CConfiguration conf) {
 }
 
 string scan(CConfiguration conf, string m) {
-	writefln("scanning module '%s' for '%s'", m, conf.out_name);
-	auto mloader = new CModulesLoader(conf);
+    writefln("scanning module '%s' for '%s'", m, conf.out_name);
+    auto mloader = new CModulesLoader(conf);
 
-	return mloader.scan(m);
+    return mloader.scan(m);
 }
 
 /* Get the list of the files that are part of the compilation process. */
 string[] files_to_compile(CConfiguration conf, string mfpath) {
-	writefln("getting files to compile...");
+    writefln("getting files to compile...");
 
-	if (!mfpath.exists) {
-		writefln("warning: %s does not exist, aborting...", mfpath);
-		throw new CAbortLoading;
-	}
+    if (!mfpath.exists) {
+        writefln("warning: %s does not exist, aborting...", mfpath);
+        throw new CAbortLoading;
+    }
 
-	try {
-		if (!mfpath.isFile) {
-			writefln("warning: %s is not a directory, aborting...", mfpath);
-			throw new CAbortLoading;
-		}
-	} catch (const FileException e) {
-		throw e;
-	}
+    try {
+        if (!mfpath.isFile) {
+            writefln("warning: %s is not a directory, aborting...", mfpath);
+            throw new CAbortLoading;
+        }
+    } catch (const FileException e) {
+        throw e;
+    }
 
-	string[] files;
-	auto fh = File(mfpath, "r");
+    string[] files;
+    auto fh = File(mfpath, "r");
 
-	if (!fh.isOpen) {
-		writeln("warning: unable to open %s, aborting...", mfpath);
-		throw new CAbortLoading;
-	}
+    if (!fh.isOpen) {
+        writeln("warning: unable to open %s, aborting...", mfpath);
+        throw new CAbortLoading;
+    }
 
-	foreach (string line; lines(fh)) {
-		line = strip(line);
-		++files.length;
-		files[$-1] = module_to_file(line, conf.root);
-		debug writefln("-- added %s to the files to compile", files[$-1]);
-	}
+    foreach (string line; lines(fh)) {
+        line = strip(line);
+        ++files.length;
+        files[$-1] = module_to_file(line, conf.root);
+        debug writefln("-- added %s to the files to compile", files[$-1]);
+    }
 
-	debug writefln("-- files to compile: %s", files);
-	return files;
+    debug writefln("-- files to compile: %s", files);
+    return files;
 }
 
 void test(CConfiguration conf) {
@@ -254,11 +271,11 @@ void clean(CConfiguration conf) {
             auto files = array(dirEntries(name, SpanMode.depth));
             foreach (string f; files) {
                 remove(f);
-				debug writefln("-- removing %s", f);
-			}
+                debug writefln("-- removed %s", f);
+            }
 
             rmdir(name);
-			debug writefln("-- removing %s", name);
+            debug writefln("-- removed %s", name);
         } catch (FileException e) {
         }
     }
@@ -267,14 +284,24 @@ void clean(CConfiguration conf) {
     remove_dir_(".obj");
     /* removing the test objects */
     remove_dir_(".objt");
-	/* removing the .sdbm modules description files */
-	remove_dir_(".sdb_modules"); /* FIXME: fuckit :D */
+    /* removing the .sdbm modules description files */
+    remove_dir_(".sdb_modules"); /* FIXME: fuckit :D */
     /* removing the test programs */
     remove_dir_(".test");
 
-    /* removing the out */
+    /* removing the output */
+    
     try {
-        remove(conf.out_name);
+        version ( Windows ) {
+            string suf = "";
+            if (conf.tt == ETargetType.EXEC)
+                suf = ".exe";
+            remove(conf.out_name ~ suf);
+            debug writefln("-- removed %s", conf.out_name ~ suf);
+        } else {
+            remove(conf.out_name);
+            debug writefln("-- removed %s", conf.out_name);
+        }
     } catch (FileException e) {
     }
 }

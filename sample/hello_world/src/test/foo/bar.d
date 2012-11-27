@@ -1,0 +1,1 @@
+module test.foo.bar;

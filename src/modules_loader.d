@@ -41,30 +41,40 @@ class CModulesLoader {
         _conf = conf;
     }
     
+    /* Returns the path of the dir containing the modules caches */
+    @property string caches_dir() const {
+        return _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
+    }
+    
+    /* Returns the name of the modules cache file for the given entry point */
+    string get_cache_path(string path) const {
+        return caches_dir ~ dirSeparator ~ path ~ MODULES_FILE_EXT;
+    }
+    
     /* Launch a modules scan and output the result in the corresponding file. */
     string scan(string m) {
         string[] modules;
         string moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
-		
+        
         debug writefln("-- scanning %s module...", m);
         scan_extract_(m, modules);
         debug writefln("-- scan finished; modules = %s", modules);
         
-        debug writefln("-- outputing the modules in %s", moddir);
         check_modules_dir_(moddir);
+        debug writefln("-- outputing the modules in %s", moddir);
         
-		moddir = moddir ~ '/' ~ m ~ MODULES_FILE_EXT;
+        moddir = moddir ~ dirSeparator ~ m ~ MODULES_FILE_EXT;
         auto fh = File(moddir, "w");
         /* TODO: treat the case when it's not open. */
         if (fh.isOpen) {
-			fh.writeln(m);
+            fh.writeln(m);
             foreach (_; modules)
                 fh.writeln(_);
         } else {
             debug writefln("-- unable to write %s modules file", moddir);
         }
 
-		return moddir;
+        return moddir;
     }
     
     /* Scan a module and extract the corresponding modules file. */
@@ -89,7 +99,7 @@ class CModulesLoader {
         foreach (string line; lines(fh)) {
             line = strip(line);
             if (line.length > IMPORT_LENGTH) {
-				auto importIndex = countUntil(line, "import ");
+                auto importIndex = countUntil(line, "import ");
                 if (importIndex >= 0 && line[$-1] == ';') {
                     line = line[(importIndex + IMPORT_LENGTH) .. countUntil!("a == ';' || a == ':'")(line)];
                     strip(line);
