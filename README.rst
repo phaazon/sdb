@@ -86,7 +86,7 @@ start them very quickly.
 
 1. The configuration file
 -------------------------
-In order to adapt to your projects, `sdb` uses a configuration file commonly called `.sdb`, but you
+In order to adapt to your projects, `sdb` uses a configuration file commonly called ``.sdb``, but you
 can do what you want if it’s a matter for you.. That file gathers all the project’s main settings. Here is a
 comprehensive list:
 
