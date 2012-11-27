@@ -86,9 +86,8 @@ start them very quickly.
 
 1. The configuration file
 -------------------------
-
 In order to adapt to your projects, `sdb` uses a configuration file commonly called `.sdb`, but you
-can change it’s a matter for you.. That file gathers all the project’s main settings. Here is a
+can do what you want if it’s a matter for you.. That file gathers all the project’s main settings. Here is a
 comprehensive list:
 
 BUILD:
@@ -98,13 +97,13 @@ TARGET:
     Target type of the project. It can be **exec** for *executable*, **static** for *static library*
     or **shared** for *dynamic library*.
 IMPORT_DIR:
-     of all directories to look in when resolving imports, separated by blanks.
+    List of all directories to look in when resolving imports, separated by blanks.
 LIB_DIR:
     List of all directories to look in when resolving libs, separated by blanks. 
 LIB:
     List of all libraries to link against.
 ROOT:
-    Root directory where is located the source modules.
+    Root directory in which are located the source modules.
 ENTRY_POINT:
     Entry point module of the application.
 AUTO_SCAN:
@@ -116,7 +115,7 @@ OUT_NAME:
 **Note: the directories' names must not include special characters like ``~`` because such
 characters are not correctly expanded**.
 
-Each keyword is followed by a blank (or several ones), and by a token or a list of values.
+Each keyword is followed by a space (or several ones), and by a value or a list of ones.
 Here is a sample:
 
 ::
@@ -130,18 +129,19 @@ Here is a sample:
     LIB_DIR ../lib
     LIB DerelictUtil
 
-The order the keywords appear does not matter, but they have to be upcase.
+The order the keywords appear does not matter, but they have to be upcase. Also, the directory
+separator doesn’t matter, `sdb` will know what you meant when running on a specifc operating
+system, so choose you favourite one :).
 
 2. Default configuration
 ------------------------
-
 Because `sdb` is designed to be simple, it provides a default configuration for each project.
-Typically, if a particular setting is not set in the configuration file, `sdb` will use its
-own default. It’s really useful for two reasons: many projects look like each other, so the
-settings won’t be often changed, and it allows `sdb` to have extra settings — which make it
-not so simple as it ought to be.
+Typically, if a particular setting isn’t set in the configuration file, `sdb` will use its
+own default. It’s really useful and powerful for two reasons: many projects look like each other,
+so the settings won’t be often changed, and it allows `sdb` to have extra settings — which make
+it not so simple as it ought to be.
 
-Here’s a comprehensive list of all the current `sdb` defaults:
+Here’s a comprehensive list of all current `sdb` defaults:
 
 - **BUILD**: ``debug``
 - **TARGET**: ``exec``
@@ -155,11 +155,11 @@ you to do a *out-of-src-tree* build, in a *build-tree*. See the samples for proj
 
 3. Module scan and auto scanning entry points 
 ---------------------------------------------
-
 `sdb` uses two short options to be able to adapt to your project and build it: the root directory
 and the entry point module. With both those information, it can compile all your files that take
 part of the final output. However, `sdb` needs to scan the entry point module to deduce what other
-modules it has to build too. That process is called a scan.
+modules it has to build too. That process is called a *scan*, or *caching modules*. Moreover, `sdb`
+tracks dependencies between modules in order to update modules that ought to be.
 
 A second feature that enriches the scan process is the *auto scan*. When *auto scan* is on, `sdb` will
 always scan the entry point on each build order. On big projects where you often compile, it can become
@@ -170,26 +170,38 @@ launched a scan. Then a build will be significantly faster.
 
 4. Command Line Interface
 -------------------------
-
 `sdb` is a CLI program. Because it aims to be simple, there are a few commands to control the build
 process:
 
 build:
     Used to build the application.
 with:
-    Prefix of the compiler to use.
+    Prefix of the compiler to use, which has to follow on the command line.
+scan:
+    Used to launch a scan on the entry point.
 clean:
     Used to clean the build tree.
 
-You can build your application with the build flag then, using the dmd compile:
+To build your project, you have to:
+
+1. if you haven’t scanned it yet, scan it;
+2. once it’s scanned, build it with the compiler of your choice.
+
+Here’s an example with dmd:
 
 ::
 
+    $ sdb scan
     $ sdb build with dmd
-    $ sdb with dmd build
-    $ sdb with dmd
+    $ sdb with dmd build # same as the line above
+    $ sdb with dmd # ditto
+    $ vim ../src/foo/bar/zoo.d # assume we edit that file
+    $ sdb with dmd # ok since ../src/foo/bar/zoo was scanned too
+    $ touch ../src/fail.d
+    $ sdb with dmd # ../src/fail.d is not compiled
+    $ sdb scan build with dmd # launch a brand new scan, then ../src/fail.d is found
+    $ ./app.bin # launch your app
 
 III - Support
 =============
-
 If you have any problem or find any bug, do not hesitate to contact me at dimitri.sabadie@gmail.com. 
