@@ -36,11 +36,11 @@ folder, for instance:
 The name of the directory configuration doesn’t matter because `sdb` will know it once it’s been
 compiled.
 
-You have to pass the path of the directory where your compiler will use the ``conf_dir.dcfg``
+You have to pass the path of the directory where your compiler will search the ``conf_dir.dcfg``
 file. For instance, with dmd, the path can be pass using the ``-Jpath`` flag.
 
 Here’s the complete set of commands to build `sdb` for a linux machine with a custom
-configuration directory (~/.sdb.d):
+configuration directory (``~/.sdb.d``) using rdmd:
 
 ::
 
@@ -48,7 +48,7 @@ configuration directory (~/.sdb.d):
     $ mkdir ~/.sdb.d
     $ echo "~/.sdb.d" > conf/linux/conf_dir.dcfg
     $ cd src
-    $ dmd -release -w -wi -O -J../conf/linux``
+    $ rdmd --build-only -release -w -wi -O -J../conf/linux sdb
 
 It will generate a `sdb` binary file in ``src/``.
 
@@ -56,7 +56,7 @@ It will generate a `sdb` binary file in ``src/``.
 -------------
 There is no support for install steps up to now, so you will have to place `sdb` in the
 installation directory on your own. On \*nix systems, you can install it into ``/usr/local/bin/``
-or ``~/bin/`` for instance, adjusting your ``PATH`` env variable:
+or ``~/bin/`` for instance, adjusting your ``PATH`` environment variable:
 
 ::
 
@@ -64,9 +64,9 @@ or ``~/bin/`` for instance, adjusting your ``PATH`` env variable:
     $ cp ./sdb ~/bin
 
 For now, you can’t build anything because you don’t have any configured compilers for `sdb`. In the
-``conf/compilers/`` directory, you’ll find a lot of .conf configuration file, for instance
+``conf/compilers/`` directory, you’ll find a lot of ``.conf`` configuration files, for instance
 ``dmd.conf``. Each of those files represents the set of parameters `sdb` needs to use the given
-compiler. Then, the ``dmd.conf`` file gathers all information `sdb` needs to allow you to use dmd
+compiler. Then, the ``dmd.conf`` file gathers all information `sdb` needs in order to allow you to use dmd
 within `sdb`.
 
 You can just copy those files in the `sdb` configuration file you set before. Example:
@@ -80,7 +80,6 @@ That’s all!
 
 II - Using `sdb`
 ================
-
 `sdb` has been written in order to make easy the build process of D projects. You just have to
 learn a few keywords, then you will be able to write your applications like a boss and especially
 start them very quickly.
