@@ -29,10 +29,13 @@ import compiler;
 import common;
 import modules_loader;
 
+import dp_graph;
+
 enum VERSION = "0.9.1-112712";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
+    auto g = new CDPGraph;
     try {
         return dispatch_args(args);
     } catch (const Exception e) {

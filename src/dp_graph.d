@@ -18,15 +18,15 @@
 
 module dp_graph;
 
-
-import std.algorithm : find;
+import std.algorithm : countUntil, find;
+import std.array : empty;
 
 /* This module contains the dependencies graph (modules dependencies). */
 
 final class CDPGraph {
     private {
         string[] _modules; /* all the modules of the project */
-        int[] _dep; /* dependencies matrix: (x;y) -> y is a dependency of x */
+        int[] _dep; /* dependencies matrix: (x;y) -> x depends on y */
     }
 
     this() {
@@ -34,20 +34,50 @@ final class CDPGraph {
 
     /* add a module in the graph */
     void add_module(string name) {
+        auto l = _modules.length;
+
+        /* add the module to the graph */
         _modules ~= name;
+        /* expand the adjacency matrix */
+        auto last = _dep;
+        _dep = new int[]((l + 1) * (l + 1));
+        uint i;
+        foreach (x; 0 .. l) { /* for each line */
+            foreach (y; 0 .. l) { /* for each column */
+                i = x*l + y;
+                _dep[i] = last[i];
+            }
+        }
     }
 
     /* add a new dependency between two modules */
     void add_dep(string x, string y) {
-        /* first thing to do: look for both the module to exist */
-        auto xf = find(_modules, x); /* x found */
-        auto yf = find(_modules, y); /* y found */
+        /* first thing to do: look for both the modules to exist */
+        auto xf = countUntil(_modules, x); /* x found */
+        auto yf = countUntil(_modules, y); /* y found */
 
-        if ( xf.empty || yf.empty ) {
-            /* trying to add a dependency between two modules with one of them doesn't exist, abort */
-            /* TODO: to rewrite a correct way */
-            throw new Exception("(" ~ x ~ ";" ~ y ~ ") is not a valid dependency");
+        if (xf < 0) {
+            throw new Exception("'" ~ x ~ "' is an unkown module");
+        } else if (yf < 0) {
+            throw new Exception("'" ~ y ~ "' is an unkown module");
         }
-
+        
+        /* create the arc */
+        _dep[xf*_modules.length + yf] = true;
+    }
+    
+    /* returns true if the module is in the graph, false otherwise */
+    bool exists(string m) const {
+        return !find(_modules, m).empty;
+    }
+    
+    /* returns all the dependencies of a module */
+    /* TODO */
+    string[] dependencies_of(string m) const {
+        string[] deps;
+        auto l = _modules.length
+        
+        foreach (y; 0 .. l) {
+        }
     }
 }
