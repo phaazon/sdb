@@ -29,13 +29,19 @@ import compiler;
 import common;
 import modules_loader;
 
-enum VERSION = "0.9-112212";
+enum VERSION = "0.9.1-112712";
+enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
-    return dispatch_args(args);
+    try {
+        return dispatch_args(args);
+    } catch (const Exception e) {
+        writefln("error: %s", e.msg);
+        return 1;
+    }
 }
 
-void vers() {
+void print_vers() {
     writeln(
 "sdb " ~ VERSION ~ "
 Copyright (C) 2012  Dimitri 'skp' Sabadie <dimitri.sabadie@gmail.com>
@@ -44,13 +50,8 @@ This is free software, and you are welcome to redistribute it
 under certain conditions; type `conditions' for details.");
 }
 
-
-int dispatch_args(string[] args) {
-    CConfiguration conf;
-
-    if (args.length == 2) {
-        if (args[1] == "warranty") {
-            writeln(
+void print_warranty() {
+    writeln(
 "  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
 HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY
@@ -59,91 +60,142 @@ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
 PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
 IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
 ALL NECESSARY SERVICING, REPAIR OR CORRECTION.");
-            return 0;
-        } else if (args[1] == "conditions") {
-            writeln("See the COPYING file for more details.");
-            return 0;
-        } else if (args[1] == "version") {
-            vers();
-            return 0;
+}
+
+int dispatch_args(string[] args) {
+    auto argc = args.length;
+    
+    if (argc == 1) {
+        /* invoked with no arguments, simply print the version */
+        print_vers();
+        return 0;
+    } else if (argc == 2) {
+        /* one argument passed */
+        switch (args[1]) {
+            case "warranty" :
+                print_warranty();
+                return 0;
+            case "conditions" :
+                writeln("See the COPYING file for more details.");
+                return 0;
+            case "version" :
+                print_vers();
+                return 0;
+            default :
+                break;
         }
     }
 
-    try {
-        conf = new CConfiguration(".sdb");
-    } catch (const CAbortLoading e) {
-        return 1;
-    }
-
-    if (args.length == 1) {
-        build(conf, conf.entry_point, conf.out_name);
-        return 0;
-    }
-
-    foreach (a; args[1 .. $]) {
-        switch (a) {
+    /* if we go here we have more than one argument */
+    string compiler;
+    string confPath = DEFAULT_CONF_PATH;
+    bool doBuild = false;
+    bool doClean = false;
+    bool doScan = false;
+    for (auto i = 1; i < argc; ++i) {
+        switch(args[i]) {
+            /* select the compiler to use */
+            case "with" :
+                if (i < argc-1)
+                    compiler = args[i+1];
+                i += 2;
+                break;
             case "build" :
-                build(conf, conf.entry_point, conf.out_name);
+                doBuild = true;
                 break;
-
             case "scan" :
-				scan(conf, conf.entry_point);
-				break;
-
-            case "build_tests" :
-                build_tests(conf);
+                doScan = true;
                 break;
-
-            case "test" :
-                /*
-                   test(conf);
-                 */
-                break;
-
             case "clean" :
-				clean(conf);
+                doClean = true;
                 break;
-
             default :
-                writefln("usage: %s [build|scan|btest|test|clean] [CONFIG_FILE]; '%s' is incorrect", args[0], a);
+                writefln("'%s' is incorrect", args[i]);
+                usage(args[0]);
+                return 1;
+        }
+    }
+    
+    auto conf = new CConfiguration(confPath);
+    if (doClean) {
+        /* clean all sdb output traces */
+        debug writeln("-- cleaning...");
+        clean(conf);
+    }
+    
+    if (doScan) {
+        scan(conf, conf.entry_point);
+    }
+    
+    if (!compiler.empty) {
+        /* user passed a compiler, so let's determine what to do with */
+        if (!doClean || doBuild) {
+            debug writeln("-- building...");
+            build(conf, conf.entry_point, conf.out_name, compiler);
         }
     }
 
     return 0;
 }
 
-void build(CConfiguration conf, string m, string output) {
-    writefln("building %s", m);
-    auto comp = new CCompiler;
-	auto mfpath = scan(conf, m);
-
-	/* get all files to compile */ 
-	auto files = files_to_compile(conf, mfpath);
-	files = files.sort;
-
-	/* let's compile them */
-	writefln("compiling '%s'", conf.out_name);
-	auto filesNb = files.length;
-	string[] objs = new string[files.length];
-	writefln("compiling %d files...", filesNb);
-	foreach (ulong i, string file; files) {
-		auto obj = file_to_module(file, conf.root);
-		obj = ".obj/" ~ obj ~ ".o";
-		auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
-
-        if (state != ECompileState.FAIL) {
-			objs[i] = obj;
-            if (state == ECompileState.COMPILED)
-                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
-        }
-	}
-
-	debug writefln("-- object files to link: %s", objs);
-
-	/* finally link the program */
-	comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
+void usage(string progName) {
+    writeln(
+"usage:\n\t" ~
+progName ~ " [build] with <compiler>\n\t" ~
+progName ~ " clean\n\t" ~
+progName ~ " build test with <compiler>");
 }
 
+void build(CConfiguration conf, string m, string output, string compiler) {
+    writefln("building %s with %s", m, compiler);
+    auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
+    auto scanner = new CModulesLoader(conf);
+    auto mfpath = scanner.get_cache_path(m);
+    
+    version ( Posix ) {
+        enum OBJ_EXT = ".o";
+    } else version ( Windows ) {
+        enum OBJ_EXT = ".obj";
+    } else {
+        static assert (0, "unsupported operating system");
+    }
+
+    /* get all files to compile */ 
+    auto files = files_to_compile(conf, mfpath);
+    files = files.sort;
+
+    /* let's compile them */
+    
+    auto filesNb = files.length;
+    bool compiled = true;
+    string[] objs = new string[files.length];
+    
+    writefln("compiling '%s' (%d files)", conf.out_name, filesNb);
+    foreach (uint i, string file; files) {
+        auto obj = file_to_module(file, conf.root);
+        obj = ".obj" ~ dirSeparator ~ obj ~ OBJ_EXT;
+        auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
+
+        if (state != ECompileState.FAIL) {
+            objs[i] = obj;
+            if (state == ECompileState.COMPILED)
+                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
+        } else {
+            compiled = false;
+        }
+    }
+
+    
+    /* finally link the program */
+    if (compiled) {
+        debug writefln("-- object files to link: %s", objs);
+        comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
+    } else {
+        writeln("link aborted because of compilation errors");
+    }
+}
+
+version ( none ) {
 void build_tests(CConfiguration conf) {
     writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
 
@@ -156,49 +208,50 @@ void build_tests(CConfiguration conf) {
         }
     }
 }
+}
 
 string scan(CConfiguration conf, string m) {
-	writefln("scanning module '%s' for '%s'", m, conf.out_name);
-	auto mloader = new CModulesLoader(conf);
+    writefln("scanning module '%s' for '%s'", m, conf.out_name);
+    auto mloader = new CModulesLoader(conf);
 
-	return mloader.scan(m);
+    return mloader.scan(m);
 }
 
 /* Get the list of the files that are part of the compilation process. */
 string[] files_to_compile(CConfiguration conf, string mfpath) {
-	writefln("getting files to compile...");
+    writefln("getting files to compile...");
 
-	if (!mfpath.exists) {
-		writefln("warning: %s does not exist, aborting...", mfpath);
-		throw new CAbortLoading;
-	}
+    if (!mfpath.exists) {
+        writefln("warning: %s does not exist, aborting...", mfpath);
+        throw new CAbortLoading;
+    }
 
-	try {
-		if (!mfpath.isFile) {
-			writefln("warning: %s is not a directory, aborting...", mfpath);
-			throw new CAbortLoading;
-		}
-	} catch (const FileException e) {
-		throw e;
-	}
+    try {
+        if (!mfpath.isFile) {
+            writefln("warning: %s is not a directory, aborting...", mfpath);
+            throw new CAbortLoading;
+        }
+    } catch (const FileException e) {
+        throw e;
+    }
 
-	string[] files;
-	auto fh = File(mfpath, "r");
+    string[] files;
+    auto fh = File(mfpath, "r");
 
-	if (!fh.isOpen) {
-		writeln("warning: unable to open %s, aborting...", mfpath);
-		throw new CAbortLoading;
-	}
+    if (!fh.isOpen) {
+        writeln("warning: unable to open %s, aborting...", mfpath);
+        throw new CAbortLoading;
+    }
 
-	foreach (string line; lines(fh)) {
-		line = strip(line);
-		++files.length;
-		files[$-1] = module_to_file(line, conf.root);
-		debug writefln("-- added %s to the files to compile", files[$-1]);
-	}
+    foreach (string line; lines(fh)) {
+        line = strip(line);
+        ++files.length;
+        files[$-1] = module_to_file(line, conf.root);
+        debug writefln("-- added %s to the files to compile", files[$-1]);
+    }
 
-	debug writefln("-- files to compile: %s", files);
-	return files;
+    debug writefln("-- files to compile: %s", files);
+    return files;
 }
 
 void test(CConfiguration conf) {
@@ -218,11 +271,11 @@ void clean(CConfiguration conf) {
             auto files = array(dirEntries(name, SpanMode.depth));
             foreach (string f; files) {
                 remove(f);
-				debug writefln("-- removing %s", f);
-			}
+                debug writefln("-- removed %s", f);
+            }
 
             rmdir(name);
-			debug writefln("-- removing %s", name);
+            debug writefln("-- removed %s", name);
         } catch (FileException e) {
         }
     }
@@ -231,14 +284,24 @@ void clean(CConfiguration conf) {
     remove_dir_(".obj");
     /* removing the test objects */
     remove_dir_(".objt");
-	/* removing the .sdbm modules description files */
-	remove_dir_(".sdb_modules"); /* FIXME: fuckit :D */
+    /* removing the .sdbm modules description files */
+    remove_dir_(".sdb_modules"); /* FIXME: fuckit :D */
     /* removing the test programs */
     remove_dir_(".test");
 
-    /* removing the out */
+    /* removing the output */
+    
     try {
-        remove(conf.out_name);
+        version ( Windows ) {
+            string suf = "";
+            if (conf.tt == ETargetType.EXEC)
+                suf = ".exe";
+            remove(conf.out_name ~ suf);
+            debug writefln("-- removed %s", conf.out_name ~ suf);
+        } else {
+            remove(conf.out_name);
+            debug writefln("-- removed %s", conf.out_name);
+        }
     } catch (FileException e) {
     }
 }

@@ -115,9 +115,9 @@ final class CConfiguration {
     private void defaults_() {
         _bt       = EBuildType.DEBUG;
         _tt       = ETargetType.EXEC;
-        _root     = "../src";
-        _testDirs = [ "../test" ];
-        _outName  = "./out";
+        _root     = ".." ~ dirSeparator ~ "src";
+        _testDirs = [ ".." ~ dirSeparator ~ "test" ];
+        _outName  = "." ~ dirSeparator ~ "out";
         _autoscan = false;
     }
 
@@ -158,6 +158,8 @@ final class CConfiguration {
         }
 
         _confFileName = file;
+        /* add the root to the import dirs */
+        _importDirs ~= _root;
         check_dirs_();
     }
 
@@ -167,15 +169,16 @@ final class CConfiguration {
                        d = check_file_prefix_(d);");
         }
 
+        /* check all the dirs */
         foreach_check_!"_libDirs"();
         foreach_check_!"_importDirs"();
         foreach_check_!"_testDirs"();
     }
 
     private string check_file_prefix_(string file) {
-        if (startsWith(file, '.', '/', '~') == 0)
-            file = "./" ~ file;
-        return file;
+        if (startsWith(file, ".", dirSeparator, "~") == 0)
+            file = "." ~ dirSeparator ~ file;
+        return normalize_path(file);
     }
 
     private void build_(string[] values) {

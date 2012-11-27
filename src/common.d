@@ -19,6 +19,7 @@
 module common;
 
 import std.array : replace;
+public import std.path : dirSeparator;
 
 enum EBuildType  { DEBUG, RELEASE };
 enum ETargetType { EXEC, STATIC, SHARED };
@@ -29,23 +30,33 @@ final class CAbortLoading : Exception {
     }
 }
 
+string normalize_path(string path) {
+    string np = path;
+    
+    np = np.replace("/", dirSeparator);
+    np = np.replace("\\", dirSeparator);
+    return np;
+}
+
 string module_to_file(string m, string rootsrc) {
     /* a module has the form:
      *   foo.bar.test.final.math.matrix
      * the corresponding file is:
      *   $(ROOT_SRC)/foo/bar/test/final/math/matrix.d
      */
+    string f = m;
     
-    m = m.replace(".", "/");
-    m ~= ".d";
-    return rootsrc ~ '/' ~ m;
+    f = f.replace(".", dirSeparator);
+    f ~= ".d";
+    return normalize_path(rootsrc ~ dirSeparator ~ f);
 }
 
 string file_to_module(string f, string rootsrc) {
-	f.length -= 2; /* popout the .d suffix */
-	f = f[rootsrc.length+1 .. $]; /* popout the root prefix */
-	f = f.replace("/", ".");
-	return f;
+    string m = normalize_path(f);
+    m.length -= 2; /* popout the .d suffix */
+    m = m[rootsrc.length+1 .. $]; /* popout the root prefix */
+    m = m.replace(dirSeparator, ".");
+    return m;
 }
 
 /* A linear search function. */
