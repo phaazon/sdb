@@ -20,34 +20,39 @@ module dp_graph;
 
 import std.algorithm : countUntil, find;
 import std.array : empty;
+debug import std.stdio;
 
 /* This module contains the dependencies graph (modules dependencies). */
 
 final class CDPGraph {
     private {
         string[] _modules; /* all the modules of the project */
-        int[] _dep; /* dependencies matrix: (x;y) -> x depends on y */
+        bool[] _dep; /* dependencies matrix: (x;y) -> x depends on y */
     }
-
-    this() {
+    
+    @property auto modules() const {
+        return _modules;
     }
 
     /* add a module in the graph */
+    /* FIXME: copy is shitty */
     void add_module(string name) {
         auto l = _modules.length;
 
         /* add the module to the graph */
         _modules ~= name;
         /* expand the adjacency matrix */
-        auto last = _dep;
-        _dep = new int[]((l + 1) * (l + 1));
+        auto last = _dep.idup;
+        _dep = new bool[]((l + 1) * (l + 1));
         uint i;
         foreach (x; 0 .. l) { /* for each line */
             foreach (y; 0 .. l) { /* for each column */
                 i = x*l + y;
-                _dep[i] = last[i];
+                _dep[i+x] = last[i];
             }
         }
+        
+        debug writefln("-- added %s module to the dependencies graph", name);
     }
 
     /* add a new dependency between two modules */
@@ -64,6 +69,7 @@ final class CDPGraph {
         
         /* create the arc */
         _dep[xf*_modules.length + yf] = true;
+        debug writefln("-- added a module dependency: %s(%d) -> %s(%d)", x, xf, y, yf);
     }
     
     /* returns true if the module is in the graph, false otherwise */
@@ -72,12 +78,36 @@ final class CDPGraph {
     }
     
     /* returns all the dependencies of a module */
-    /* TODO */
-    string[] dependencies_of(string m) const {
+    string[] deps_of(string m) const {
         string[] deps;
-        auto l = _modules.length
+        auto l = _modules.length;
+        auto mf = countUntil(_modules, m); /* m found */
+        
+        if (mf < 0)
+            throw new Exception("'" ~ m ~ "' is an unkown module");
         
         foreach (y; 0 .. l) {
+            if (_dep[mf*_modules.length + y])
+                deps ~= _modules[y];
         }
+        
+        return deps;
+    }
+    
+    /* returns all the dependents of a module */
+    string[] dependents_of(string m) const {
+        string[] deps;
+        auto l = _modules.length;
+        auto mf = countUntil(_modules, m); /* m found */
+        
+        if (mf < 0)
+            throw new Exception("'" ~ m ~ "' is an unkown module");
+        
+        foreach (y; 0 .. l) {
+            if (_dep[y*_modules.length + mf])
+                deps ~= _modules[y];
+        }
+        
+        return deps;
     }
 }

@@ -20,18 +20,18 @@
 
 module sdb;
 
-import std.array : array;
+import std.array : array, split;
 import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode;
 import std.process : system;
 import std.stdio : writeln, writef, writefln, lines;
 import configuration;
 import compiler;
 import common;
-import modules_loader;
+import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.1-112712";
+enum VERSION = "1.0.0-MMDD12";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
@@ -149,10 +149,16 @@ progName ~ " clean\n\t" ~
 progName ~ " build test with <compiler>");
 }
 
+void scan(const CConfiguration conf, string m) {
+    writefln("scanning module '%s' for '%s'", m, conf.out_name);
+    auto mloader = new CModulesScanner(conf);
+    mloader.scan(m);
+}
+
 void build(CConfiguration conf, string m, string output, string compiler) {
     writefln("building %s with %s", m, compiler);
     auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
-    auto scanner = new CModulesLoader(conf);
+    auto scanner = new CModulesScanner(conf);
     auto mfpath = scanner.get_cache_path(m);
     
     version ( Posix ) {
@@ -163,12 +169,11 @@ void build(CConfiguration conf, string m, string output, string compiler) {
         static assert (0, "unsupported operating system");
     }
 
-    /* get all files to compile */ 
-    auto files = files_to_compile(conf, mfpath);
-    files = files.sort;
+    /* get all modules to compile */ 
+    auto graph = modules_to_compile(conf, mfpath);
 
-    /* let's compile them */
-    
+    version ( graph ) {
+    /* compile them */
     auto filesNb = files.length;
     bool compiled = true;
     string[] objs = new string[files.length];
@@ -196,33 +201,12 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     } else {
         writeln("link aborted because of compilation errors");
     }
-}
-
-version ( none ) {
-void build_tests(CConfiguration conf) {
-    writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
-
-    foreach (testDir; conf.test_dirs) {
-        debug writefln("-- test directory %s", testDir);
-        auto tests = dirEntries(testDir, "*.d", SpanMode.depth);
-        foreach (test; tests) {
-            auto m = file_to_module(test, conf.root);
-            build(conf, m, m);
-        }
     }
 }
-}
 
-string scan(CConfiguration conf, string m) {
-    writefln("scanning module '%s' for '%s'", m, conf.out_name);
-    auto mloader = new CModulesLoader(conf);
-
-    return mloader.scan(m);
-}
-
-/* Get the list of the files that are part of the compilation process. */
-string[] files_to_compile(CConfiguration conf, string mfpath) {
-    writefln("getting files to compile...");
+/* Get the list of the modules that are part of the compilation process. */
+CDPGraph modules_to_compile(CConfiguration conf, string mfpath) {
+    writefln("getting modules to compile...");
 
     if (!mfpath.exists) {
         writefln("warning: %s does not exist, aborting...", mfpath);
@@ -238,34 +222,29 @@ string[] files_to_compile(CConfiguration conf, string mfpath) {
         throw e;
     }
 
-    string[] files;
     auto fh = File(mfpath, "r");
-
     if (!fh.isOpen) {
         writeln("warning: unable to open %s, aborting...", mfpath);
         throw new CAbortLoading;
     }
-
+    
+    auto graph = new CDPGraph;
     foreach (string line; lines(fh)) {
-        line = strip(line);
-        ++files.length;
-        files[$-1] = module_to_file(line, conf.root);
-        debug writefln("-- added %s to the files to compile", files[$-1]);
+        auto spl = split(strip(line));
+        if (!graph.exists(spl[0]))
+            graph.add_module(spl[0]);
+        debug writefln("-- lol: %s", spl);
+        if (spl.length > 1) { /* there's at least one dependency */
+            foreach (dep; spl[1 .. $]) {
+                if (!graph.exists(dep))
+                    graph.add_module(dep);
+                graph.add_dep(spl[0], dep);
+            }
+        }
     }
 
-    debug writefln("-- files to compile: %s", files);
-    return files;
-}
-
-void test(CConfiguration conf) {
-    writefln("testing '%s'", conf.out_name);
-
-    auto programs = array(dirEntries(".test", SpanMode.depth));
-    auto filesNb = programs.length;
-    foreach (int i, string t; programs) {
-        auto r = system(t);
-        writefln("--> [%4d%% | %s ] %s", cast(int)(((i+1)*100/filesNb)), t, (r ? "FAIL" : "OK"));
-    }
+    debug writefln("-- modules to compile: %s", graph.modules);
+    return graph;
 }
 
 void clean(CConfiguration conf) {
@@ -293,7 +272,6 @@ void clean(CConfiguration conf) {
     remove_dir_(".test");
 
     /* removing the output */
-    
     try {
         version ( Windows ) {
             string suf = "";
@@ -308,3 +286,30 @@ void clean(CConfiguration conf) {
     } catch (FileException e) {
     }
 }
+
+version ( 110 ) {
+void build_tests(CConfiguration conf) {
+    writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
+
+    foreach (testDir; conf.test_dirs) {
+        debug writefln("-- test directory %s", testDir);
+        auto tests = dirEntries(testDir, "*.d", SpanMode.depth);
+        foreach (test; tests) {
+            auto m = file_to_module(test, conf.root);
+            build(conf, m, m);
+        }
+    }
+}
+
+void test(CConfiguration conf) {
+    writefln("testing '%s'", conf.out_name);
+
+    auto programs = array(dirEntries(".test", SpanMode.depth));
+    auto filesNb = programs.length;
+    foreach (int i, string t; programs) {
+        auto r = system(t);
+        writefln("--> [%4d%% | %s ] %s", cast(int)(((i+1)*100/filesNb)), t, (r ? "FAIL" : "OK"));
+    }
+}
+
+} /* version 110 */
