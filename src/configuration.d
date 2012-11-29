@@ -28,7 +28,7 @@ import std.string : strip;
 import common;
 
 final class CConfiguration {
-    enum DEFAULT_FILE         = ".sdb";
+    enum DEFAULT_FILE = ".sdb";
 
     private {
         alias void delegate(string[]) token_fun_t;

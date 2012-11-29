@@ -21,11 +21,12 @@ module compiler;
 /* This modules gathers compilers' abstraction. */
 
 import std.algorithm : reduce;
+import std.ascii : newline;
 import std.array : join, replace, split;
 import std.file : exists, SpanMode, SysTime, timeLastModified;
 import std.process : system;
 import std.stdio : writeln, writefln;
-import std.string : chomp;
+import std.string : chomp, strip;
 import std.conv : to;
 import common;
 import configuration;
@@ -40,7 +41,7 @@ final class CCompiler {
     alias typeof(this) that;
     
     /* FIXME: move that with a string import */
-    enum SDB_CONFIG_DIR = chomp(import("conf_dir.dcfg"), dirSeparator) ~ dirSeparator;
+    enum SDB_CONFIG_DIR = chomp(chomp(import("conf_dir.dcfg")), dirSeparator) ~ dirSeparator;
 
     private {
         string _invocation;
