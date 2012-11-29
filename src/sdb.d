@@ -247,6 +247,11 @@ CDPGraph modules_to_compile(CConfiguration conf, string mfpath) {
     return graph;
 }
 
+bool needs_compile(string file, string obj) {
+    return timeLastModified(file) >= timeLastModified(obj, SysTime.min);
+}
+
+
 void clean(CConfiguration conf) {
     void remove_dir_(string name) {
         try {
