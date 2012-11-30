@@ -23,7 +23,7 @@ module compiler;
 import std.algorithm : reduce;
 import std.ascii : newline;
 import std.array : join, replace, split;
-import std.file : exists, SpanMode, SysTime, timeLastModified;
+import std.file : exists; 
 import std.process : system;
 import std.stdio : writeln, writefln;
 import std.string : chomp, strip;
@@ -106,13 +106,11 @@ final class CCompiler {
             ~ (importDirs.length ? _importDirDecl ~ reduce!((string a, string b) => a ~ " " ~ _importDirDecl ~ b)(importDirs) ~ " " : "")
             ~ _outDecl;
 
-        if (timeLastModified(file) >= timeLastModified(obj, SysTime.min)) {
-            state = ECompileState.COMPILED;
-            debug writefln("-- %s%s %s", cmd, obj, file);
-            auto r = system(cmd ~ obj ~ " " ~ file);
-            if (r != 0)
-                state = ECompileState.FAIL;
-        }
+        state = ECompileState.COMPILED;
+        debug writefln("-- %s%s %s", cmd, obj, file);
+        auto r = system(cmd ~ obj ~ " " ~ file);
+        if (r != 0)
+            state = ECompileState.FAIL;
 
         return state;
     }

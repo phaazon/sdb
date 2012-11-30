@@ -21,7 +21,7 @@
 module sdb;
 
 import std.array : array, split;
-import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode;
+import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode, SysTime, timeLastModified;
 import std.process : system;
 import std.stdio : writeln, writef, writefln, lines;
 import configuration;
@@ -160,7 +160,7 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
     auto scanner = new CModulesScanner(conf);
     auto mfpath = scanner.get_cache_path(m);
-    
+
     version ( Posix ) {
         enum OBJ_EXT = ".o";
     } else version ( Windows ) {
@@ -169,43 +169,59 @@ void build(CConfiguration conf, string m, string output, string compiler) {
         static assert (0, "unsupported operating system");
     }
 
-    /* get all modules to compile */ 
-    auto graph = modules_to_compile(conf, mfpath);
+    /* get all the project's modules */ 
+    auto graph = project_modules(conf, mfpath);
 
-    version ( graph ) {
-    /* compile them */
-    auto filesNb = files.length;
+    auto modules = graph.modules;
+    auto modulesNb = modules.length;
     bool compiled = true;
-    string[] objs = new string[files.length];
-    
-    writefln("compiling '%s' (%d files)", conf.out_name, filesNb);
-    foreach (uint i, string file; files) {
-        auto obj = file_to_module(file, conf.root);
-        obj = ".obj" ~ dirSeparator ~ obj ~ OBJ_EXT;
-        auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
+    string[] objs = new string[](modulesNb);
 
+    /* nested function used to compile a module */
+    void compile(string file, string obj, uint i) {
+        auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
         if (state != ECompileState.FAIL) {
-            objs[i] = obj;
             if (state == ECompileState.COMPILED)
-                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
+                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/modulesNb)), file);
         } else {
             compiled = false;
         }
     }
+    
 
+    writefln("compiling '%s' (%d modules)", conf.out_name, modulesNb);
+    foreach (uint i, string mod; modules) {
+        auto file = module_to_file(mod, conf.root);
+        auto obj = ".obj" ~ dirSeparator ~ mod ~ OBJ_EXT;
+
+        if (needs_compile(file, obj)) {
+            /* if the file needs to compile, compile it... */
+            compile(file, obj, i); 
+
+            /* ...and update all its dependents */
+            auto dependents = graph.dependents_of(mod);
+            debug writefln("-- compiling all dependents of %s: [%s]", mod, dependents);
+            foreach (dpt; dependents) {
+                auto dfile = module_to_file(dpt, conf.root);
+                auto dobj = ".obj" ~ dirSeparator ~ dpt ~ OBJ_EXT;
+                compile(dfile, dobj, i);
+            }
+        }
+
+        objs[i] = obj;
+    }
     
     /* finally link the program */
-    if (compiled) {
+    if (!objs.empty && compiled) {
         debug writefln("-- object files to link: %s", objs);
         comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
     } else {
         writeln("link aborted because of compilation errors");
     }
-    }
 }
 
 /* Get the list of the modules that are part of the compilation process. */
-CDPGraph modules_to_compile(CConfiguration conf, string mfpath) {
+CDPGraph project_modules(CConfiguration conf, string mfpath) {
     writefln("getting modules to compile...");
 
     if (!mfpath.exists) {
@@ -228,12 +244,12 @@ CDPGraph modules_to_compile(CConfiguration conf, string mfpath) {
         throw new CAbortLoading;
     }
     
+    /* insert in the graph the found modules */
     auto graph = new CDPGraph;
     foreach (string line; lines(fh)) {
         auto spl = split(strip(line));
         if (!graph.exists(spl[0]))
             graph.add_module(spl[0]);
-        debug writefln("-- lol: %s", spl);
         if (spl.length > 1) { /* there's at least one dependency */
             foreach (dep; spl[1 .. $]) {
                 if (!graph.exists(dep))
@@ -250,7 +266,6 @@ CDPGraph modules_to_compile(CConfiguration conf, string mfpath) {
 bool needs_compile(string file, string obj) {
     return timeLastModified(file) >= timeLastModified(obj, SysTime.min);
 }
-
 
 void clean(CConfiguration conf) {
     void remove_dir_(string name) {

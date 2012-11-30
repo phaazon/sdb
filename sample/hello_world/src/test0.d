@@ -4,5 +4,5 @@ import test1;
 import std.stdio : writefln;
 
 void say(string msg) {
-	writefln("msg");
+	writefln("msg --> %s", msg);
 }
