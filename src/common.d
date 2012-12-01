@@ -18,8 +18,10 @@
 
 module common;
 
+public import skp.log;
 import std.array : replace;
 import std.ascii : newline;
+import std.file : isDir, isFile, exists;
 import std.string : chomp, removechars, strip;
 public import std.path : dirSeparator;
 
@@ -75,4 +77,38 @@ bool any(alias __Pred, __Range)(__Range r) {
     }
     
     return false;
+}
+
+/* Checks if the path is a file */
+bool is_file(string path) {
+    /* first thing to do, check if the path exists */
+    if (!path.exists)
+        return false;
+
+    /* then, verify it's really a file */
+    try {
+        if (!path.isFile)
+            return false;
+    } catch (const Exception e) {
+        return false;
+    }
+
+    return true;
+}
+
+/* Checks if the path is a directory */
+bool is_dir(string path) {
+    /* first thing to do, check if the path exists */
+    if (!path.exists)
+        return false;
+
+    /* then, verify it's really a directory */
+    try {
+        if (!path.isDir)
+            return false;
+    } catch (const Exception e) {
+        return false;
+    }
+
+    return true;
 }

@@ -16,8 +16,6 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-/* TODO: all this module has to be refactored and cleaned */
-
 module sdb;
 
 import std.array : array, split;
@@ -31,11 +29,10 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.2-120112";
+enum VERSION = "0.9.3-120112";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
-    auto g = new CDPGraph;
     try {
         return dispatch_args(args);
     } catch (const Exception e) {
@@ -224,24 +221,13 @@ void build(CConfiguration conf, string m, string output, string compiler) {
 CDPGraph project_modules(CConfiguration conf, string mfpath) {
     writefln("getting modules to compile...");
 
-    if (!mfpath.exists) {
-        writefln("warning: %s does not exist, aborting...", mfpath);
-        throw new CAbortLoading;
-    }
-
-    try {
-        if (!mfpath.isFile) {
-            writefln("warning: %s is not a directory, aborting...", mfpath);
-            throw new CAbortLoading;
-        }
-    } catch (const FileException e) {
-        throw e;
-    }
+    if (!is_file(mfpath))
+        throw new Exception("unable to generate the modules graph because there's no file");
 
     auto fh = File(mfpath, "r");
     if (!fh.isOpen) {
-        writeln("warning: unable to open %s, aborting...", mfpath);
-        throw new CAbortLoading;
+        log(ELog.ERROR, "unable to open %s for modules graph generation", mfpath);
+        throw new Exception("unable to generate the modules graph because '" ~ mfpath ~ "' can't be read");
     }
     
     /* insert in the graph the found modules */

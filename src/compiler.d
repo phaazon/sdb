@@ -132,9 +132,8 @@ final class CCompiler {
     
     /* load the compiler from disk */
     static that from_disk(string path) {
-        if (!exists(path)) {
-            /* TODO */
-            throw new Exception("'" ~ path ~ "' doesn't exist");
+        if (!is_file(path)) {
+            throw new Exception("unable to load the compiler at '" ~ path ~ "'");
         }
         
         auto cmp = new CCompiler;

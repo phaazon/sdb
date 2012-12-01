@@ -100,8 +100,7 @@ final class CConfiguration {
         try {
             if (file.length == 0) {
                 load_(DEFAULT_FILE);
-            } else if (!file.isFile) {
-                writefln("warning: %s is not a regular file, aborting...", file);
+            } else if (!is_file(file)) {
                 throw new CAbortLoading;
             } else {
                 load_(file);
@@ -139,7 +138,10 @@ final class CConfiguration {
     private void load_(string file) {
         auto fh = File(file, "r");
 
-        fh.isOpen; /* FIXME: not critical but that just... sucks a lot */
+        if(!fh.isOpen) {
+            log(ELog.WARNING, "unable to open '%s' for reading configuration", file);
+            return;
+        }
 
         /* before loading, set the default values */
         defaults_();

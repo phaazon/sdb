@@ -1,6 +1,14 @@
 Change Log
 ----------
 
+Version Tag: v0.9.2-120112
+    - fixed file existence trouble
+    - now use the skp.log logger module
+
+Version Tag: v0.9.2-120112
+    - full support of modules dependencies
+    - fixed bugs related to exception catching
+
 Version Tag: v0.9.1-112712
     - made compilers detection runtime whereas it used to be compile-time
     - sdb configuration directory is customizable
