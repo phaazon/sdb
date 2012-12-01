@@ -138,21 +138,17 @@ final class CCompiler {
         }
         
         auto cmp = new CCompiler;
-        debug {
-            auto fh = File(path, "r");
-            char[] token;
-            char[][] values;
-            foreach (string line; lines(fh)) {
-                auto splitted = split(strip(line), "=");
-                if (splitted.length > 2) {
-                    /* TODO */
-                    throw new Exception("'" ~ line ~ "' is misformed");
-                }
-                cmp.set_param_(strip(splitted[0]), strip(splitted[1]));
+
+        auto fh = File(path, "r");
+        char[] token;
+        char[][] values;
+        foreach (string line; lines(fh)) {
+            auto splitted = split(strip(line), "=");
+            if (splitted.length > 2) {
+                /* TODO */
+                throw new Exception("'" ~ line ~ "' is misformed");
             }
-        } else {
-            static assert (0, "need to use skp.lexi");
-            /* auto raw = readText(path); */
+            cmp.set_param_(strip(splitted[0]), strip(splitted[1]));
         }
         
         return cmp;
