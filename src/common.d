@@ -19,6 +19,8 @@
 module common;
 
 import std.array : replace;
+import std.ascii : newline;
+import std.string : chomp, removechars, strip;
 public import std.path : dirSeparator;
 
 enum EBuildType  { DEBUG, RELEASE };
@@ -33,6 +35,8 @@ final class CAbortLoading : Exception {
 string normalize_path(string path) {
     string np = path;
     
+    np = removechars(path, newline);
+    np = strip(path);
     np = np.replace("/", dirSeparator);
     np = np.replace("\\", dirSeparator);
     return np;

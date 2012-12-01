@@ -40,8 +40,8 @@ enum ECompileState {
 final class CCompiler {
     alias typeof(this) that;
     
-    /* FIXME: move that with a string import */
-    enum SDB_CONFIG_DIR = chomp(chomp(import("conf_dir.dcfg")), dirSeparator) ~ dirSeparator;
+    //enum SDB_CONFIG_DIR = chomp(chomp(import("conf_dir.dcfg")), dirSeparator) ~ dirSeparator;
+    enum SDB_CONFIG_DIR = normalize_path(import("conf_dir.dcfg"));
 
     private {
         string _invocation;
@@ -57,7 +57,6 @@ final class CCompiler {
         string _sharedSwitch;
     }
     
-    /* TODO: rename to bt2str_ */
     /* Convert a EBuildType into a string. */
     private string bt2str_(EBuildType b) {
         string bt;
