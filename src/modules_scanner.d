@@ -16,20 +16,20 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-module modules_loader;
+module modules_scanner;
 
-/* This module is used to retrieve / scan all the modules to be compiled
-for a given module. */
+/* This module is used to scan a module to find its dependencies. */
 
 import std.algorithm : countUntil;
-import std.array : empty;
+import std.array : empty, join;
 import std.file;
 import std.stdio;
 import std.string : strip;
 import configuration : CConfiguration;
 import common;
+import dp_graph;
 
-class CModulesLoader {
+class CModulesScanner {
     enum MODULES_DIR_SUFFIX = "_modules";
     enum MODULES_FILE_EXT   = ".sdbm";
     
@@ -46,39 +46,32 @@ class CModulesLoader {
         return _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
     }
     
-    /* Returns the name of the modules cache file for the given entry point */
+    /* Returns the path of the modules cache file for the given entry point */
     string get_cache_path(string path) const {
         return caches_dir ~ dirSeparator ~ path ~ MODULES_FILE_EXT;
     }
     
     /* Launch a modules scan and output the result in the corresponding file. */
-    string scan(string m) {
-        string[] modules;
+    void scan(string m) {
         string moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
+        /* #8 */
+        auto graph = new CDPGraph;
         
         debug writefln("-- scanning %s module...", m);
-        scan_extract_(m, modules);
-        debug writefln("-- scan finished; modules = %s", modules);
+        graph.add_module(m);
+        scan_extract_(m, graph);
+        debug writefln("-- scan finished; modules = %s", graph.modules);
         
         check_modules_dir_(moddir);
-        debug writefln("-- outputing the modules in %s", moddir);
+        debug writefln("-- outputing the modules in the %s directory", moddir);
         
-        moddir = moddir ~ dirSeparator ~ m ~ MODULES_FILE_EXT;
-        auto fh = File(moddir, "w");
-        /* TODO: treat the case when it's not open. */
-        if (fh.isOpen) {
-            fh.writeln(m);
-            foreach (_; modules)
-                fh.writeln(_);
-        } else {
-            debug writefln("-- unable to write %s modules file", moddir);
-        }
-
-        return moddir;
+        moddir = get_cache_path(m);
+        scan_output_(moddir, graph);
+        debug writefln("-- output finished; modules graph is in %s", moddir);
     }
     
     /* Scan a module and extract the corresponding modules file. */
-    private void scan_extract_(string m, ref string[] modules) {
+    private void scan_extract_(string m, CDPGraph graph) {
         auto path = module_to_file(m, _conf.root);
 
         try {
@@ -88,32 +81,33 @@ class CModulesLoader {
             return;
         }
         
-        auto fh = File(path, "r");
-        if (!fh.isOpen) {
-            writefln("warning: unable to open %s", path);
-            throw new CAbortLoading;
-        }
-        
         string[] toScan;
-        enum IMPORT_LENGTH = "import ".length;        
-        foreach (string line; lines(fh)) {
-            line = strip(line);
-            if (line.length > IMPORT_LENGTH) {
-                auto importIndex = countUntil(line, "import ");
-                if (importIndex >= 0 && line[$-1] == ';') {
-                    line = line[(importIndex + IMPORT_LENGTH) .. countUntil!("a == ';' || a == ':'")(line)];
-                    strip(line);
-                    debug writefln("-- %s imports %s", path, line);
-                    if (!any!((string a) => a == line)(modules)) {
-                        /* the module is not in the build array yet */
+        { /* File RAII, parallels opened files fix */
+            auto fh = File(path, "r");
+            if (!fh.isOpen) {
+                writefln("warning: unable to open %s", path);
+                throw new CAbortLoading;
+            }
+        
+            enum IMPORT_LENGTH = "import ".length;        
+            foreach (string line; lines(fh)) {
+                line = strip(line);
+                if (line.length > IMPORT_LENGTH) {
+                    auto importIndex = countUntil(line, "import ");
+                    if (importIndex >= 0 && line[$-1] == ';') {
+                        line = line[(importIndex + IMPORT_LENGTH) .. countUntil!("a == ';' || a == ':'")(line)];
+                        line = strip(line);
+                        debug writefln("-- %s imports %s", m, line);
                         if (module_to_file(line, _conf.root).exists) {
                             /* the module can be accessed from the project root */
-                            ++modules.length;
-                            modules[$-1] = line;
-                            /* modules to scan */
-                            ++toScan.length;
-                            toScan[$-1] = line;
-                            writefln("--> found module '%s'", line);
+                            if (!graph.exists(line)) {
+                                /* the module is not in the graph yet */
+                                graph.add_module(line);
+                                /* modules to scan */
+                                toScan ~= line;
+                                writefln("--> found module '%s'", line);
+                            }
+                            graph.add_dep(m, line);
                         }
                     }
                 }
@@ -122,7 +116,27 @@ class CModulesLoader {
 
         /* recursively scan the imported modules */
         foreach (_; toScan)
-            scan_extract_(_, modules);
+            scan_extract_(_, graph);
+    }
+    
+    private void scan_output_(string path, CDPGraph graph) {
+        auto fh = File(path, "w");
+        
+        /* TODO: treat the case when it's not open. */
+        if (fh.isOpen) {
+            foreach (_; graph.modules) {
+                auto deps = graph.deps_of(_);
+                debug writefln("-- outputing dependencies of %s: %s", _, deps);
+                if (deps.empty) { /* no dependency, then just output the module */
+                    fh.writefln("%s", _);
+                } else {
+                    auto depsStr = join(deps, " ");
+                    fh.writefln("%s %s", _, depsStr);
+                }
+            }
+        } else {
+            debug writefln("-- unable to write %s modules file", path);
+        }
     }
     
     private void check_modules_dir_(string path) {

@@ -21,11 +21,12 @@ module compiler;
 /* This modules gathers compilers' abstraction. */
 
 import std.algorithm : reduce;
+import std.ascii : newline;
 import std.array : join, replace, split;
-import std.file : exists, SpanMode, SysTime, timeLastModified;
+import std.file : exists; 
 import std.process : system;
 import std.stdio : writeln, writefln;
-import std.string : chomp;
+import std.string : chomp, strip;
 import std.conv : to;
 import common;
 import configuration;
@@ -39,8 +40,8 @@ enum ECompileState {
 final class CCompiler {
     alias typeof(this) that;
     
-    /* FIXME: move that with a string import */
-    enum SDB_CONFIG_DIR = chomp(import("conf_dir.dcfg"), dirSeparator) ~ dirSeparator;
+    //enum SDB_CONFIG_DIR = chomp(chomp(import("conf_dir.dcfg")), dirSeparator) ~ dirSeparator;
+    enum SDB_CONFIG_DIR = normalize_path(import("conf_dir.dcfg"));
 
     private {
         string _invocation;
@@ -56,7 +57,6 @@ final class CCompiler {
         string _sharedSwitch;
     }
     
-    /* TODO: rename to bt2str_ */
     /* Convert a EBuildType into a string. */
     private string bt2str_(EBuildType b) {
         string bt;
@@ -105,13 +105,11 @@ final class CCompiler {
             ~ (importDirs.length ? _importDirDecl ~ reduce!((string a, string b) => a ~ " " ~ _importDirDecl ~ b)(importDirs) ~ " " : "")
             ~ _outDecl;
 
-        if (timeLastModified(file) >= timeLastModified(obj, SysTime.min)) {
-            state = ECompileState.COMPILED;
-            debug writefln("-- %s%s %s", cmd, obj, file);
-            auto r = system(cmd ~ obj ~ " " ~ file);
-            if (r != 0)
-                state = ECompileState.FAIL;
-        }
+        state = ECompileState.COMPILED;
+        debug writefln("-- %s%s %s", cmd, obj, file);
+        auto r = system(cmd ~ obj ~ " " ~ file);
+        if (r != 0)
+            state = ECompileState.FAIL;
 
         return state;
     }
@@ -140,21 +138,17 @@ final class CCompiler {
         }
         
         auto cmp = new CCompiler;
-        debug {
-            auto fh = File(path, "r");
-            char[] token;
-            char[][] values;
-            foreach (string line; lines(fh)) {
-                auto splitted = split(strip(line), "=");
-                if (splitted.length > 2) {
-                    /* TODO */
-                    throw new Exception("'" ~ line ~ "' is misformed");
-                }
-                cmp.set_param_(strip(splitted[0]), strip(splitted[1]));
+
+        auto fh = File(path, "r");
+        char[] token;
+        char[][] values;
+        foreach (string line; lines(fh)) {
+            auto splitted = split(strip(line), "=");
+            if (splitted.length > 2) {
+                /* TODO */
+                throw new Exception("'" ~ line ~ "' is misformed");
             }
-        } else {
-            static assert (0, "need to use skp.lexi");
-            /* auto raw = readText(path); */
+            cmp.set_param_(strip(splitted[0]), strip(splitted[1]));
         }
         
         return cmp;

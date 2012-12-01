@@ -20,19 +20,22 @@
 
 module sdb;
 
-import std.array : array;
-import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode;
+import std.array : array, split;
+import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode, SysTime, timeLastModified;
 import std.process : system;
 import std.stdio : writeln, writef, writefln, lines;
 import configuration;
 import compiler;
 import common;
-import modules_loader;
+import modules_scanner;
 
-enum VERSION = "0.9.1-112712";
+import dp_graph;
+
+enum VERSION = "0.9.2-120112";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
+    auto g = new CDPGraph;
     try {
         return dispatch_args(args);
     } catch (const Exception e) {
@@ -146,12 +149,18 @@ progName ~ " clean\n\t" ~
 progName ~ " build test with <compiler>");
 }
 
+void scan(const CConfiguration conf, string m) {
+    writefln("scanning module '%s' for '%s'", m, conf.out_name);
+    auto mloader = new CModulesScanner(conf);
+    mloader.scan(m);
+}
+
 void build(CConfiguration conf, string m, string output, string compiler) {
     writefln("building %s with %s", m, compiler);
     auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
-    auto scanner = new CModulesLoader(conf);
+    auto scanner = new CModulesScanner(conf);
     auto mfpath = scanner.get_cache_path(m);
-    
+
     version ( Posix ) {
         enum OBJ_EXT = ".o";
     } else version ( Windows ) {
@@ -160,34 +169,50 @@ void build(CConfiguration conf, string m, string output, string compiler) {
         static assert (0, "unsupported operating system");
     }
 
-    /* get all files to compile */ 
-    auto files = files_to_compile(conf, mfpath);
-    files = files.sort;
+    /* get all the project's modules */ 
+    auto graph = project_modules(conf, mfpath);
 
-    /* let's compile them */
-    
-    auto filesNb = files.length;
+    auto modules = graph.modules;
+    auto modulesNb = modules.length;
     bool compiled = true;
-    string[] objs = new string[files.length];
-    
-    writefln("compiling '%s' (%d files)", conf.out_name, filesNb);
-    foreach (uint i, string file; files) {
-        auto obj = file_to_module(file, conf.root);
-        obj = ".obj" ~ dirSeparator ~ obj ~ OBJ_EXT;
-        auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
+    string[] objs = new string[](modulesNb);
 
+    /* nested function used to compile a module */
+    void compile(string file, string obj, uint i) {
+        auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
         if (state != ECompileState.FAIL) {
-            objs[i] = obj;
             if (state == ECompileState.COMPILED)
-                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/filesNb)), file);
+                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/modulesNb)), file);
         } else {
             compiled = false;
         }
     }
+    
 
+    writefln("compiling '%s' (%d modules)", conf.out_name, modulesNb);
+    foreach (uint i, string mod; modules) {
+        auto file = module_to_file(mod, conf.root);
+        auto obj = ".obj" ~ dirSeparator ~ mod ~ OBJ_EXT;
+
+        if (needs_compile(file, obj)) {
+            /* if the file needs to compile, compile it... */
+            compile(file, obj, i); 
+
+            /* ...and update all its dependents */
+            auto dependents = graph.dependents_of(mod);
+            debug writefln("-- compiling all dependents of %s: [%s]", mod, dependents);
+            foreach (dpt; dependents) {
+                auto dfile = module_to_file(dpt, conf.root);
+                auto dobj = ".obj" ~ dirSeparator ~ dpt ~ OBJ_EXT;
+                compile(dfile, dobj, i);
+            }
+        }
+
+        objs[i] = obj;
+    }
     
     /* finally link the program */
-    if (compiled) {
+    if (!objs.empty && compiled) {
         debug writefln("-- object files to link: %s", objs);
         comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
     } else {
@@ -195,31 +220,9 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     }
 }
 
-version ( none ) {
-void build_tests(CConfiguration conf) {
-    writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
-
-    foreach (testDir; conf.test_dirs) {
-        debug writefln("-- test directory %s", testDir);
-        auto tests = dirEntries(testDir, "*.d", SpanMode.depth);
-        foreach (test; tests) {
-            auto m = file_to_module(test, conf.root);
-            build(conf, m, m);
-        }
-    }
-}
-}
-
-string scan(CConfiguration conf, string m) {
-    writefln("scanning module '%s' for '%s'", m, conf.out_name);
-    auto mloader = new CModulesLoader(conf);
-
-    return mloader.scan(m);
-}
-
-/* Get the list of the files that are part of the compilation process. */
-string[] files_to_compile(CConfiguration conf, string mfpath) {
-    writefln("getting files to compile...");
+/* Get the list of the modules that are part of the compilation process. */
+CDPGraph project_modules(CConfiguration conf, string mfpath) {
+    writefln("getting modules to compile...");
 
     if (!mfpath.exists) {
         writefln("warning: %s does not exist, aborting...", mfpath);
@@ -235,34 +238,33 @@ string[] files_to_compile(CConfiguration conf, string mfpath) {
         throw e;
     }
 
-    string[] files;
     auto fh = File(mfpath, "r");
-
     if (!fh.isOpen) {
         writeln("warning: unable to open %s, aborting...", mfpath);
         throw new CAbortLoading;
     }
-
+    
+    /* insert in the graph the found modules */
+    auto graph = new CDPGraph;
     foreach (string line; lines(fh)) {
-        line = strip(line);
-        ++files.length;
-        files[$-1] = module_to_file(line, conf.root);
-        debug writefln("-- added %s to the files to compile", files[$-1]);
+        auto spl = split(strip(line));
+        if (!graph.exists(spl[0]))
+            graph.add_module(spl[0]);
+        if (spl.length > 1) { /* there's at least one dependency */
+            foreach (dep; spl[1 .. $]) {
+                if (!graph.exists(dep))
+                    graph.add_module(dep);
+                graph.add_dep(spl[0], dep);
+            }
+        }
     }
 
-    debug writefln("-- files to compile: %s", files);
-    return files;
+    debug writefln("-- modules to compile: %s", graph.modules);
+    return graph;
 }
 
-void test(CConfiguration conf) {
-    writefln("testing '%s'", conf.out_name);
-
-    auto programs = array(dirEntries(".test", SpanMode.depth));
-    auto filesNb = programs.length;
-    foreach (int i, string t; programs) {
-        auto r = system(t);
-        writefln("--> [%4d%% | %s ] %s", cast(int)(((i+1)*100/filesNb)), t, (r ? "FAIL" : "OK"));
-    }
+bool needs_compile(string file, string obj) {
+    return timeLastModified(file) >= timeLastModified(obj, SysTime.min);
 }
 
 void clean(CConfiguration conf) {
@@ -290,7 +292,6 @@ void clean(CConfiguration conf) {
     remove_dir_(".test");
 
     /* removing the output */
-    
     try {
         version ( Windows ) {
             string suf = "";
@@ -305,3 +306,30 @@ void clean(CConfiguration conf) {
     } catch (FileException e) {
     }
 }
+
+version ( 110 ) {
+void build_tests(CConfiguration conf) {
+    writefln("building %s%s tests", conf.out_name, conf.out_name[$-1] == 's' ? "'" : "'s");
+
+    foreach (testDir; conf.test_dirs) {
+        debug writefln("-- test directory %s", testDir);
+        auto tests = dirEntries(testDir, "*.d", SpanMode.depth);
+        foreach (test; tests) {
+            auto m = file_to_module(test, conf.root);
+            build(conf, m, m);
+        }
+    }
+}
+
+void test(CConfiguration conf) {
+    writefln("testing '%s'", conf.out_name);
+
+    auto programs = array(dirEntries(".test", SpanMode.depth));
+    auto filesNb = programs.length;
+    foreach (int i, string t; programs) {
+        auto r = system(t);
+        writefln("--> [%4d%% | %s ] %s", cast(int)(((i+1)*100/filesNb)), t, (r ? "FAIL" : "OK"));
+    }
+}
+
+} /* version 110 */
