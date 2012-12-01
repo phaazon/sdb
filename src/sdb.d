@@ -31,7 +31,7 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "1.0.0-MMDD12";
+enum VERSION = "0.9.2-120112";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
