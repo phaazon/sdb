@@ -55,6 +55,10 @@ final class CConfiguration {
             return _bt;
         }
 
+        void bt(EBuildType b) {
+            _bt = b;
+        }
+
         auto tt() const {
             return _tt;
         }
@@ -123,7 +127,6 @@ final class CConfiguration {
 
     private void init_fun_() {
         _tokenFunTbl = [
-            "BUILD"       : &build_,
             "TARGET"      : &target_,
             "LIB_DIR"     : &values_!"libDirs",
             "LIB"         : &values_!"libs",
@@ -179,26 +182,6 @@ final class CConfiguration {
         if (startsWith(file, ".", dirSeparator, "~") == 0)
             file = "." ~ dirSeparator ~ file;
         return normalize_path(file);
-    }
-
-    private void build_(string[] values) {
-        if (values.length == 1) {
-            switch (values[0]) {
-                case "debug" :
-                    _bt = EBuildType.DEBUG;
-                    break;
-
-                case "release" :
-                    _bt = EBuildType.RELEASE;
-                    break;
-
-                default :
-                    writefln("warning: '%s' is not a correct build type", values[0]);
-                    return;
-            }
-        }
-        
-        debug writefln("-- build type: %s", _bt);
     }
 
     private void target_(string[] values) {

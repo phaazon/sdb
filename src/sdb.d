@@ -31,7 +31,7 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.2-120112";
+enum VERSION = "0.9.3-120212";
 enum DEFAULT_CONF_PATH = ".sdb";
 
 int main(string[] args) {
@@ -92,6 +92,7 @@ int dispatch_args(string[] args) {
     /* if we go here we have more than one argument */
     string compiler;
     string confPath = DEFAULT_CONF_PATH;
+    auto conf = new CConfiguration(confPath);
     bool doBuild = false;
     bool doClean = false;
     bool doScan = false;
@@ -101,7 +102,20 @@ int dispatch_args(string[] args) {
             case "with" :
                 if (i < argc-1)
                     compiler = args[i+1];
-                i += 2;
+                i++;
+                break;
+            /* select the build type (debug or release) */
+            case "as" :
+                if (i < argc-1) {
+                    auto bt = args[i+1];
+                    
+                    if (bt == "debug")
+                        conf.bt = EBuildType.DEBUG;
+                    else if (bt == "release")
+                        conf.bt = EBuildType.RELEASE;
+                    debug writefln("-- build type: %s", conf.bt);
+                }
+                i++;
                 break;
             case "build" :
                 doBuild = true;
@@ -119,7 +133,6 @@ int dispatch_args(string[] args) {
         }
     }
     
-    auto conf = new CConfiguration(confPath);
     if (doClean) {
         /* clean all sdb output traces */
         debug writeln("-- cleaning...");
