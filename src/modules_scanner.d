@@ -54,7 +54,6 @@ class CModulesScanner {
     /* Launch a modules scan and output the result in the corresponding file. */
     void scan(string m) {
         string moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
-        /* #8 */
         auto graph = new CDPGraph;
         
         debug writefln("-- scanning %s module...", m);
@@ -74,10 +73,8 @@ class CModulesScanner {
     private void scan_extract_(string m, CDPGraph graph) {
         auto path = module_to_file(m, _conf.root);
 
-        try {
-            if (!path.isFile)
-                return;
-        } catch (const FileException e) {
+        if (!is_file(path)) {
+            log(ELog.WARNING, "unable to extract modules from '%s'", path);
             return;
         }
         
@@ -85,8 +82,8 @@ class CModulesScanner {
         { /* File RAII, parallels opened files fix */
             auto fh = File(path, "r");
             if (!fh.isOpen) {
-                writefln("warning: unable to open %s", path);
-                throw new CAbortLoading;
+                log(ELog.WARNING, "unable to open %s for scanning", path);
+                return;
             }
         
             enum IMPORT_LENGTH = "import ".length;        
@@ -122,31 +119,25 @@ class CModulesScanner {
     private void scan_output_(string path, CDPGraph graph) {
         auto fh = File(path, "w");
         
-        /* TODO: treat the case when it's not open. */
-        if (fh.isOpen) {
-            foreach (_; graph.modules) {
-                auto deps = graph.deps_of(_);
-                debug writefln("-- outputing dependencies of %s: %s", _, deps);
-                if (deps.empty) { /* no dependency, then just output the module */
-                    fh.writefln("%s", _);
-                } else {
-                    auto depsStr = join(deps, " ");
-                    fh.writefln("%s %s", _, depsStr);
-                }
+        if (!fh.isOpen) {
+            log(ELog.ERROR, "unable to open %s for outputting scan results", path);
+            throw new Exception("unable to output scan results");
+        }
+
+        foreach (_; graph.modules) {
+            auto deps = graph.deps_of(_);
+            debug writefln("-- outputing dependencies of %s: %s", _, deps);
+            if (deps.empty) { /* no dependency, then just output the module */
+                fh.writefln("%s", _);
+            } else {
+                auto depsStr = join(deps, " ");
+                fh.writefln("%s %s", _, depsStr);
             }
-        } else {
-            debug writefln("-- unable to write %s modules file", path);
         }
     }
     
     private void check_modules_dir_(string path) {
-        try {
-            if (!path.isDir) {
-                writefln("%s is not a directory but it ought to be, aborting...");
-                throw new CAbortLoading;
-            }
-        } catch (const FileException e) {
-            /* create the dir */
+        if (!is_dir(path)) {
             debug writefln("-- %s does not exist yet, creating...", path);
             mkdir(path);
         }
