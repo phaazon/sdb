@@ -146,7 +146,10 @@ int dispatch_args(string[] args) {
     }
 
     if (doScan) {
-        scan(conf, conf.entry_point);
+        if (conf.tt == ETargetType.EXEC)
+            scan(conf, conf.entry_point);
+        else /* for libs, use the virtual entrypoint */
+            scan(conf, "index");
     }
     
     if (!compiler.empty) {
@@ -317,17 +320,21 @@ void clean(CConfiguration conf) {
 
 void index(CConfiguration conf) {
     writefln("indexing %s", conf.out_name);
-    auto indexFile = conf.root ~ dirSeparator ~ "index.d";
+    auto indexFile = "index.d";
+
+    debug writefln("-- outputing index in '%s'", indexFile);
+    auto modules = array(dirEntries(conf.root, "*.d", SpanMode.depth));
+    modules.sort;
+    debug writefln("-- indexed modules: %s", modules);
 
     auto fh = File(indexFile, "w");
     if (!fh.isOpen) {
         log(ELog.ERROR, "unable to open '%s'", indexFile);
         return;
     }
-    
-    debug writefln("-- outputing index in '%s'", indexFile);
-    auto modules = array(dirEntries(conf.root, "*.d", SpanMode.depth));
-    debug writefln("-- indexed modules: %s", modules);
+
+    foreach (m; modules)
+        fh.writefln("import %s;", file_to_module(m, conf.root));
 }
 
 version ( 110 ) {
