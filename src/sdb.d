@@ -90,9 +90,10 @@ int dispatch_args(string[] args) {
     string compiler;
     string confPath = DEFAULT_CONF_PATH;
     auto conf = new CConfiguration(confPath);
-    bool doBuild = false;
-    bool doClean = false;
-    bool doScan = false;
+    bool doBuild;
+    bool doClean;
+    bool doScan;
+    bool doIndex;
     for (auto i = 1; i < argc; ++i) {
         switch(args[i]) {
             /* select the compiler to use */
@@ -117,6 +118,10 @@ int dispatch_args(string[] args) {
             case "build" :
                 doBuild = true;
                 break;
+
+            case "index" :
+                doIndex = true;
+                break;
             case "scan" :
                 doScan = true;
                 break;
@@ -136,6 +141,10 @@ int dispatch_args(string[] args) {
         clean(conf);
     }
     
+    if (doIndex) {
+        index(conf);
+    }
+
     if (doScan) {
         scan(conf, conf.entry_point);
     }
@@ -304,6 +313,26 @@ void clean(CConfiguration conf) {
         }
     } catch (FileException e) {
     }
+}
+
+void index(CConfiguration conf) {
+    writefln("indexing %s", conf.out_name);
+    auto indexFile = conf.root ~ dirSeparator ~ "index.d";
+
+    if (!is_file(indexFile)) {
+        log(ELog.ERROR, "'%s' is not a valid index file", indexFile);
+        return;
+    }
+
+    auto fh = File(indexFile, "w");
+    if (!fh.isOpen) {
+        log(ELog.ERROR, "unable to open '%s'", indexFile);
+        return;
+    }
+    
+    debug writefln("-- outputing index in '%s'", indexFile);
+    auto modules = array(dirEntries(conf.root, "*.d", SpanMode.depth));
+    debug writefln("-- indexed modules: %s", modules);
 }
 
 version ( 110 ) {

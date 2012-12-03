@@ -175,6 +175,7 @@ final class CConfiguration {
         }
 
         /* check all the dirs */
+        _root = check_file_prefix_(_root);
         foreach_check_!"_libDirs"();
         foreach_check_!"_importDirs"();
         foreach_check_!"_testDirs"();
