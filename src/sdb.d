@@ -319,11 +319,6 @@ void index(CConfiguration conf) {
     writefln("indexing %s", conf.out_name);
     auto indexFile = conf.root ~ dirSeparator ~ "index.d";
 
-    if (!is_file(indexFile)) {
-        log(ELog.ERROR, "'%s' is not a valid index file", indexFile);
-        return;
-    }
-
     auto fh = File(indexFile, "w");
     if (!fh.isOpen) {
         log(ELog.ERROR, "unable to open '%s'", indexFile);
