@@ -44,9 +44,9 @@ final class CDPGraph {
         /* expand the adjacency matrix */
         auto last = _dep.idup;
         _dep = new bool[]((l + 1) * (l + 1));
-        long i;
-        foreach (x; 0 .. l) { /* for each line */
-            foreach (y; 0 .. l) { /* for each column */
+        ulong i;
+        foreach (x; 0UL .. l) { /* for each line */
+            foreach (y; 0UL .. l) { /* for each column */
                 i = x*l + y;
                 _dep[i+x] = last[i];
             }
