@@ -122,6 +122,9 @@ final class CConfiguration {
         _testDirs = [ ".." ~ dirSeparator ~ "test" ];
         _outName  = "." ~ dirSeparator ~ "out";
         _autoscan = false;
+
+        /* special: for libs, the entrypoint must always be index.d */
+        _entryPoint = "index.d";
     }
 
     private void init_fun_() {
