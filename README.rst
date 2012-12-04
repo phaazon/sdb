@@ -90,9 +90,6 @@ In order to adapt to your projects, `sdb` uses a configuration file commonly cal
 can do what you want if it’s a matter for you.. That file gathers all the project’s main settings. Here is a
 comprehensive list:
 
-BUILD:
-    Build type of the project. It can be **debug** for *debug build* or **release** for *release and
-    optimized build*.
 TARGET:
     Target type of the project. It can be **exec** for *executable*, **static** for *static library*
     or **shared** for *dynamic library*.
@@ -106,10 +103,6 @@ ROOT:
     Root directory in which are located the source modules.
 ENTRY_POINT:
     Entry point module of the application.
-AUTO_SCAN:
-    Auto-scan option used to automatically scan entry points on a build.
-TEST_DIR:
-    List of all test directories to test, separated by blanks.
 OUT_NAME:
     Name of the output of the build.
 **Note: the directories' names must not include special characters like ``~`` because such
@@ -120,7 +113,6 @@ Here is a sample:
 
 ::
 
-    BUILD debug
     TARGET exec
     ROOT ../src
     ENTRY_POINT main
@@ -143,7 +135,7 @@ it not so simple as it ought to be.
 
 Here’s a comprehensive list of all current `sdb` defaults:
 
-- **BUILD**: ``debug``
+- ``debug``
 - **TARGET**: ``exec``
 - **ROOT**: ``../src``
 - **TEST_DIR**: ``../test``
@@ -153,20 +145,14 @@ Here’s a comprehensive list of all current `sdb` defaults:
 As you may have noticed, the default root directory is placed in ``../src``. That encourages
 you to do a *out-of-src-tree* build, in a *build-tree*. See the samples for projects examples.
 
-3. Module scan and auto scanning entry points 
----------------------------------------------
+3. Module scan
+--------------
 `sdb` uses two short options to be able to adapt to your project and build it: the root directory
 and the entry point module. With both those information, it can compile all your files that take
 part of the final output. However, `sdb` needs to scan the entry point module to deduce what other
 modules it has to build too. That process is called a *scan*, or *caching modules*. Moreover, `sdb`
 tracks dependencies between modules in order to update modules that ought to be.
 
-A second feature that enriches the scan process is the *auto scan*. When *auto scan* is on, `sdb` will
-always scan the entry point on each build order. On big projects where you often compile, it can become
-a pain. So when the *auto scan* option is off, `sdb` won’t build anything if you haven’t manually
-launched a scan. Then a build will be significantly faster.
-
-**Note: the *auto scan* is about to be deprecated.**
 
 4. Command Line Interface
 -------------------------
@@ -177,6 +163,8 @@ build:
     Used to build the application.
 with:
     Prefix of the compiler to use, which has to follow on the command line.
+as:
+    Prefix of the build type to use, wich has to follow on the command line (``debug`` or ``release``).
 scan:
     Used to launch a scan on the entry point.
 clean:
@@ -187,7 +175,10 @@ To build your project, you have to:
 1. if you haven’t scanned it yet, scan it;
 2. once it’s scanned, build it with the compiler of your choice.
 
-Here’s an example with dmd:
+5. Examples
+-----------
+
+Here are some examples with dmd:
 
 ::
 
@@ -200,7 +191,10 @@ Here’s an example with dmd:
     $ touch ../src/fail.d
     $ sdb with dmd # ../src/fail.d is not compiled
     $ sdb scan build with dmd # launch a brand new scan, then ../src/fail.d is found
-    $ ./app.bin # launch your app
+    $ ./app.bin # launch your app (debug)
+    $ sdb clean
+    $ sdb scan
+    $ sdb with dmd as release # compile the application for release
 
 III - Support
 =============
