@@ -18,6 +18,7 @@
 
 module sdb;
 
+import std.algorithm : map;
 import std.array : array, split;
 import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode, SysTime, timeLastModified;
 import std.process : system;
@@ -29,8 +30,9 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.3-120112";
+enum VERSION = "0.9.4-120412";
 enum DEFAULT_CONF_PATH = ".sdb";
+enum LIB_VIRTUAL_ENTRYPOINT = "lib.index";
 
 int main(string[] args) {
     try {
@@ -89,16 +91,30 @@ int dispatch_args(string[] args) {
     /* if we go here we have more than one argument */
     string compiler;
     string confPath = DEFAULT_CONF_PATH;
-    bool doBuild = false;
-    bool doClean = false;
-    bool doScan = false;
+    auto conf = new CConfiguration(confPath);
+    bool doBuild;
+    bool doClean;
+    bool doScan;
     for (auto i = 1; i < argc; ++i) {
         switch(args[i]) {
             /* select the compiler to use */
             case "with" :
                 if (i < argc-1)
                     compiler = args[i+1];
-                i += 2;
+                i++;
+                break;
+            /* select the build type (debug or release) */
+            case "as" :
+                if (i < argc-1) {
+                    auto bt = args[i+1];
+                    
+                    if (bt == "debug")
+                        conf.bt = EBuildType.DEBUG;
+                    else if (bt == "release")
+                        conf.bt = EBuildType.RELEASE;
+                    debug writefln("-- build type: %s", conf.bt);
+                }
+                i++;
                 break;
             case "build" :
                 doBuild = true;
@@ -116,7 +132,6 @@ int dispatch_args(string[] args) {
         }
     }
     
-    auto conf = new CConfiguration(confPath);
     if (doClean) {
         /* clean all sdb output traces */
         debug writeln("-- cleaning...");
@@ -124,14 +139,20 @@ int dispatch_args(string[] args) {
     }
     
     if (doScan) {
-        scan(conf, conf.entry_point);
+        if (conf.tt == ETargetType.EXEC)
+            scan(conf, conf.entry_point);
+        else /* for libs, use the virtual entrypoint */
+            index(conf);
     }
     
     if (!compiler.empty) {
         /* user passed a compiler, so let's determine what to do with */
         if (!doClean || doBuild) {
             debug writeln("-- building...");
-            build(conf, conf.entry_point, conf.out_name, compiler);
+            if (conf.tt == ETargetType.EXEC)
+                build(conf, conf.entry_point, conf.out_name, compiler);
+            else /* for libs, build with the virtual entrypoint */
+                build(conf, LIB_VIRTUAL_ENTRYPOINT, conf.out_name, compiler);
         }
     }
 
@@ -149,12 +170,15 @@ progName ~ " build test with <compiler>");
 void scan(const CConfiguration conf, string m) {
     writefln("scanning module '%s' for '%s'", m, conf.out_name);
     auto mloader = new CModulesScanner(conf);
-    mloader.scan(m);
+    auto graph = new CDPGraph;
+    mloader.scan(m, graph);
+    mloader.output_scan(m, graph);
 }
 
+/* Build the output using the m entrypoint. */
 void build(CConfiguration conf, string m, string output, string compiler) {
     writefln("building %s with %s", m, compiler);
-    auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf"); /* FIXME */
+    auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf");
     auto scanner = new CModulesScanner(conf);
     auto mfpath = scanner.get_cache_path(m);
 
@@ -186,7 +210,7 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     }
     
 
-    writefln("compiling '%s' (%d modules)", conf.out_name, modulesNb);
+    writefln("compiling '%s' (%d module%s)", conf.out_name, modulesNb, modulesNb > 1 ? "s" : "");
     foreach (uint i, string mod; modules) {
         auto file = module_to_file(mod, conf.root);
         auto obj = ".obj" ~ dirSeparator ~ mod ~ OBJ_EXT;
@@ -291,6 +315,22 @@ void clean(CConfiguration conf) {
         }
     } catch (FileException e) {
     }
+}
+
+void index(CConfiguration conf) {
+    import std.algorithm : map;
+    writefln("indexing %s", conf.out_name);
+
+    auto mloader = new CModulesScanner(conf);
+    auto graph = new CDPGraph;
+
+    alias map!( (string a) => file_to_module(a, conf.root) ) f2m;
+    auto modules = f2m(array(dirEntries(conf.root, "*.d", SpanMode.depth)));
+    debug writefln("-- indexed modules: %s", modules);
+    
+    foreach (m; modules)
+        mloader.scan(m, graph); /* FIXME: not optimal at all */
+    mloader.output_scan(LIB_VIRTUAL_ENTRYPOINT, graph);
 }
 
 version ( 110 ) {

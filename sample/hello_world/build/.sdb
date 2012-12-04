@@ -1,4 +1,3 @@
-BUILD debug
 TARGET exec
 ROOT ../src
 ENTRY_POINT main

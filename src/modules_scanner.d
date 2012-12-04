@@ -51,22 +51,13 @@ class CModulesScanner {
         return caches_dir ~ dirSeparator ~ path ~ MODULES_FILE_EXT;
     }
     
-    /* Launch a modules scan and output the result in the corresponding file. */
-    void scan(string m) {
-        string moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
-        auto graph = new CDPGraph;
-        
+    /* Launch a modules scan. */
+    void scan(string m, CDPGraph graph) {
         debug writefln("-- scanning %s module...", m);
-        graph.add_module(m);
+        if (!graph.exists(m))
+            graph.add_module(m);
         scan_extract_(m, graph);
         debug writefln("-- scan finished; modules = %s", graph.modules);
-        
-        check_modules_dir_(moddir);
-        debug writefln("-- outputing the modules in the %s directory", moddir);
-        
-        moddir = get_cache_path(m);
-        scan_output_(moddir, graph);
-        debug writefln("-- output finished; modules graph is in %s", moddir);
     }
     
     /* Scan a module and extract the corresponding modules file. */
@@ -95,17 +86,19 @@ class CModulesScanner {
                         line = line[(importIndex + IMPORT_LENGTH) .. countUntil!("a == ';' || a == ':'")(line)];
                         line = strip(line);
                         debug writefln("-- %s imports %s", m, line);
-                        if (module_to_file(line, _conf.root).exists) {
-                            /* the module can be accessed from the project root */
-                            if (!graph.exists(line)) {
-                                /* the module is not in the graph yet */
-                                graph.add_module(line);
-                                /* modules to scan */
-                                toScan ~= line;
-                                writefln("--> found module '%s'", line);
+                        //foreach(pre; _conf.import_dirs) {
+                            if (module_to_file(line, /*pre*/_conf.root).exists) {
+                                /* the module can be accessed from the project root */
+                                if (!graph.exists(line)) {
+                                    /* the module is not in the graph yet */
+                                    graph.add_module(line);
+                                    /* modules to scan */
+                                    toScan ~= line;
+                                    writefln("--> found module '%s'", line);
+                                }
+                                graph.add_dep(m, line);
                             }
-                            graph.add_dep(m, line);
-                        }
+                        //}
                     }
                 }
             }
@@ -116,7 +109,12 @@ class CModulesScanner {
             scan_extract_(_, graph);
     }
     
-    private void scan_output_(string path, CDPGraph graph) {
+    void output_scan(string m, CDPGraph graph) {
+        auto moddir = _conf.conf_file_name ~ MODULES_DIR_SUFFIX;
+        check_modules_dir_(moddir);
+        auto path = get_cache_path(m);
+
+        debug writefln("-- outputing the modules in the %s directory", moddir);
         auto fh = File(path, "w");
         
         if (!fh.isOpen) {
@@ -134,6 +132,8 @@ class CModulesScanner {
                 fh.writefln("%s %s", _, depsStr);
             }
         }
+        
+        debug writefln("-- output finished; modules graph is in %s", moddir);
     }
     
     private void check_modules_dir_(string path) {

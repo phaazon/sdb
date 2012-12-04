@@ -1,7 +1,10 @@
 Change Log
 ----------
 
-Version Tag: v0.9.3-120112
+Version Tag: v0.9.4-120412
+    - libs are now indexed on a scan
+
+Version Tag: v0.9.3-120212
     - fixed file existence trouble
     - now use the skp.log logger module
 
