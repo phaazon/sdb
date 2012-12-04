@@ -194,7 +194,7 @@ Here are some examples with dmd:
     $ ./app.bin # launch your app (debug)
     $ sdb clean
     $ sdb scan
-    $ sdb with dmd as release # compile the application for release
+    $ sdb with gdc as release # compile the application for release
 
 III - Support
 =============
