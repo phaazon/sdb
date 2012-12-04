@@ -1,3 +1,3 @@
-int usefull_func() {
+int useful_func() {
     return 42;
 }
