@@ -30,7 +30,7 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.4-120412";
+enum VERSION = "0.9.5-12DD12";
 enum DEFAULT_CONF_PATH = ".sdb";
 enum LIB_VIRTUAL_ENTRYPOINT = "lib.index";
 
@@ -198,14 +198,15 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     string[] alreadyCompiled;
 
     /* nested function used to compile a module */
-    void compile(string file, string obj, uint i) {
+    bool compile(string file, string obj, uint i) {
         auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
         if (state != ECompileState.FAIL) {
             if (state == ECompileState.COMPILED)
-                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/modulesNb)), file);
+                return true;
         } else {
             compiled = false;
         }
+        return false;
     }
 
     writefln("compiling '%s' (%d module%s)", conf.out_name, modulesNb, modulesNb > 1 ? "s" : "");
@@ -216,6 +217,7 @@ void build(CConfiguration conf, string m, string output, string compiler) {
         if (needs_compile(file, obj)) {
             /* if the file needs to compile, compile it... */
             compile(file, obj, i); 
+            writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/modulesNb)), mod);
             alreadyCompiled ~= obj;
 
             /* ...and update all its dependents */
@@ -226,6 +228,7 @@ void build(CConfiguration conf, string m, string output, string compiler) {
                 auto dobj = ".obj" ~ dirSeparator ~ dpt ~ OBJ_EXT;
                 if (find(alreadyCompiled, dobj).empty) {
                     compile(dfile, dobj, i);
+                    writefln("--> [%5s | %s ] ", " ", dpt);
                     alreadyCompiled ~= dobj;
                 }
             }
@@ -237,6 +240,7 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     /* finally link the program */
     if (!objs.empty && compiled) {
         debug writefln("-- object files to link: %s", objs);
+        writefln("linking '%s'", conf.out_name);
         comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
     } else {
         writeln("link aborted because of compilation errors");
