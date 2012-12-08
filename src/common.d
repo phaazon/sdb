@@ -18,7 +18,6 @@
 
 module common;
 
-public import skp.log;
 import std.array : replace;
 import std.ascii : newline;
 import std.file : isDir, isFile, exists;

@@ -65,7 +65,7 @@ class CModulesScanner {
         auto path = module_to_file(m, _conf.root);
 
         if (!is_file(path)) {
-            log(ELog.WARNING, "unable to extract modules from '%s'", path);
+            writefln("unable to extract modules from '%s'", path);
             return;
         }
         
@@ -73,7 +73,7 @@ class CModulesScanner {
         { /* File RAII, parallels opened files fix */
             auto fh = File(path, "r");
             if (!fh.isOpen) {
-                log(ELog.WARNING, "unable to open %s for scanning", path);
+                writefln("unable to open %s for scanning", path);
                 return;
             }
         
@@ -118,7 +118,7 @@ class CModulesScanner {
         auto fh = File(path, "w");
         
         if (!fh.isOpen) {
-            log(ELog.ERROR, "unable to open %s for outputting scan results", path);
+            stderr.writefln("unable to open %s for outputting scan results", path);
             throw new Exception("unable to output scan results");
         }
 

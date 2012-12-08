@@ -22,7 +22,7 @@ import std.algorithm : map;
 import std.array : array, split;
 import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode, SysTime, timeLastModified;
 import std.process : system;
-import std.stdio : writeln, writef, writefln, lines;
+import std.stdio : lines, stderr, writeln, writef, writefln;
 import configuration;
 import compiler;
 import common;
@@ -30,7 +30,7 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.4-120412";
+enum VERSION = "0.9.5-120812";
 enum DEFAULT_CONF_PATH = ".sdb";
 enum LIB_VIRTUAL_ENTRYPOINT = "lib.index";
 
@@ -178,9 +178,6 @@ void scan(const CConfiguration conf, string m) {
 /* Build the output using the m entrypoint. */
 void build(CConfiguration conf, string m, string output, string compiler) {
     writefln("building %s with %s", m, compiler);
-    auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf");
-    auto scanner = new CModulesScanner(conf);
-    auto mfpath = scanner.get_cache_path(m);
 
     version ( Posix ) {
         enum OBJ_EXT = ".o";
@@ -189,26 +186,28 @@ void build(CConfiguration conf, string m, string output, string compiler) {
     } else {
         static assert (0, "unsupported operating system");
     }
-
+    auto comp = CCompiler.from_disk(CCompiler.SDB_CONFIG_DIR ~ chomp(compiler) ~ ".conf");
+    auto scanner = new CModulesScanner(conf);
+    auto mfpath = scanner.get_cache_path(m);
     /* get all the project's modules */ 
     auto graph = project_modules(conf, mfpath);
-
     auto modules = graph.modules;
     auto modulesNb = modules.length;
     bool compiled = true;
     string[] objs = new string[](modulesNb);
+    string[] alreadyCompiled;
 
     /* nested function used to compile a module */
-    void compile(string file, string obj, uint i) {
+    bool compile(string file, string obj, uint i) {
         auto state = comp.compile(file, obj, conf.bt, conf.import_dirs);
         if (state != ECompileState.FAIL) {
             if (state == ECompileState.COMPILED)
-                writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/modulesNb)), file);
+                return true;
         } else {
             compiled = false;
         }
+        return false;
     }
-    
 
     writefln("compiling '%s' (%d module%s)", conf.out_name, modulesNb, modulesNb > 1 ? "s" : "");
     foreach (uint i, string mod; modules) {
@@ -218,6 +217,8 @@ void build(CConfiguration conf, string m, string output, string compiler) {
         if (needs_compile(file, obj)) {
             /* if the file needs to compile, compile it... */
             compile(file, obj, i); 
+            writefln("--> [%4d%% | %s ] ", cast(int)(((i+1)*100/modulesNb)), mod);
+            alreadyCompiled ~= obj;
 
             /* ...and update all its dependents */
             auto dependents = graph.dependents_of(mod);
@@ -225,16 +226,21 @@ void build(CConfiguration conf, string m, string output, string compiler) {
             foreach (dpt; dependents) {
                 auto dfile = module_to_file(dpt, conf.root);
                 auto dobj = ".obj" ~ dirSeparator ~ dpt ~ OBJ_EXT;
-                compile(dfile, dobj, i);
+                if (find(alreadyCompiled, dobj).empty) {
+                    compile(dfile, dobj, i);
+                    writefln("--> [%5s | %s ] ", " ", dpt);
+                    alreadyCompiled ~= dobj;
+                }
             }
         }
 
         objs[i] = obj;
     }
-    
+
     /* finally link the program */
     if (!objs.empty && compiled) {
         debug writefln("-- object files to link: %s", objs);
+        writefln("linking '%s'", conf.out_name);
         comp.link(objs, output, conf.bt, conf.tt, conf.lib_dirs, conf.libs);
     } else {
         writeln("link aborted because of compilation errors");
@@ -250,7 +256,7 @@ CDPGraph project_modules(CConfiguration conf, string mfpath) {
 
     auto fh = File(mfpath, "r");
     if (!fh.isOpen) {
-        log(ELog.ERROR, "unable to open %s for modules graph generation", mfpath);
+        stderr.writefln("error: unable to open %s for modules graph generation", mfpath);
         throw new Exception("unable to generate the modules graph because '" ~ mfpath ~ "' can't be read");
     }
     
