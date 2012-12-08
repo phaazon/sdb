@@ -145,7 +145,7 @@ final class CConfiguration {
         auto fh = File(file, "r");
 
         if(!fh.isOpen) {
-            log(ELog.WARNING, "unable to open '%s' for reading configuration", file);
+            writefln("unable to open '%s' for reading configuration", file);
             return;
         }
 

@@ -22,7 +22,7 @@ import std.algorithm : map;
 import std.array : array, split;
 import std.file : exists, dirEntries, isDir, FileException, remove, rmdir, SpanMode, SysTime, timeLastModified;
 import std.process : system;
-import std.stdio : writeln, writef, writefln, lines;
+import std.stdio : lines, stderr, writeln, writef, writefln;
 import configuration;
 import compiler;
 import common;
@@ -30,7 +30,7 @@ import modules_scanner;
 
 import dp_graph;
 
-enum VERSION = "0.9.5-12DD12";
+enum VERSION = "0.9.5-120812";
 enum DEFAULT_CONF_PATH = ".sdb";
 enum LIB_VIRTUAL_ENTRYPOINT = "lib.index";
 
@@ -256,7 +256,7 @@ CDPGraph project_modules(CConfiguration conf, string mfpath) {
 
     auto fh = File(mfpath, "r");
     if (!fh.isOpen) {
-        log(ELog.ERROR, "unable to open %s for modules graph generation", mfpath);
+        stderr.writefln("error: unable to open %s for modules graph generation", mfpath);
         throw new Exception("unable to generate the modules graph because '" ~ mfpath ~ "' can't be read");
     }
     
